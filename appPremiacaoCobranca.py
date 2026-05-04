@@ -28,18 +28,19 @@ def gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl
     sec_s    = S("se",fontName="Helvetica-Bold", fontSize=11, textColor=navy, spaceBefore=14, spaceAfter=6)
     small_s  = S("sm",fontName="Helvetica",      fontSize=7,  textColor=gray)
     story = []
-    # Header: title block
-    from reportlab.platypus import KeepTogether
-    from reportlab.lib.enums import TA_LEFT, TA_RIGHT
-    title_block = Table([
-        [Paragraph("GRUPO LLE", S("tl", fontName="Helvetica-Bold", fontSize=22, textColor=navy)),
-         Paragraph("Sistema de Premiação — Equipe Financeiro", S("tr", fontName="Helvetica", fontSize=9, textColor=gray, alignment=2))],
-        [Paragraph("Relatório Gerencial de Cobrança", S("sl", fontName="Helvetica", fontSize=10, textColor=gray)),
-         Paragraph(mes_ref, S("sr", fontName="Helvetica-Bold", fontSize=10, textColor=navy, alignment=2))],
-    ], colWidths=[11*cm, 6.7*cm])
+    # Header: logo texto à esquerda, info à direita
+    left_cell = [
+        Paragraph("GRUPO LLE", S("tl", fontName="Helvetica-Bold", fontSize=22, textColor=navy, spaceAfter=2)),
+        Paragraph("Sistema de Premiacao — Equipe Financeiro", S("sl", fontName="Helvetica", fontSize=9, textColor=gray)),
+    ]
+    right_cell = [
+        Paragraph("Relatorio Gerencial de Cobranca", S("tr", fontName="Helvetica", fontSize=9, textColor=gray, alignment=2, spaceAfter=2)),
+        Paragraph(mes_ref, S("sr", fontName="Helvetica-Bold", fontSize=11, textColor=navy, alignment=2)),
+    ]
+    title_block = Table([[left_cell, right_cell]], colWidths=[11*cm, 6.7*cm])
     title_block.setStyle(TableStyle([
         ("VALIGN", (0,0), (-1,-1), "BOTTOM"),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
         ("TOPPADDING", (0,0), (-1,-1), 0),
     ]))
     story.append(title_block)
