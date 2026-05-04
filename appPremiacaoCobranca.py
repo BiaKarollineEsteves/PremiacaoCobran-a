@@ -28,17 +28,29 @@ def gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl
     sec_s    = S("se",fontName="Helvetica-Bold", fontSize=11, textColor=navy, spaceBefore=14, spaceAfter=6)
     small_s  = S("sm",fontName="Helvetica",      fontSize=7,  textColor=gray)
     story = []
-    story.append(Paragraph("GRUPO LLE", title_s))
-    story.append(Paragraph("Sistema de Premiação — Equipe Financeiro", sub_s))
-    story.append(Paragraph(f"Relatório Gerencial · {mes_ref}", sub_s))
-    story.append(HRFlowable(width="100%", thickness=3, color=yellow, spaceAfter=12))
+    # Header: title block
+    from reportlab.platypus import KeepTogether
+    from reportlab.lib.enums import TA_LEFT, TA_RIGHT
+    title_block = Table([
+        [Paragraph("GRUPO LLE", S("tl", fontName="Helvetica-Bold", fontSize=22, textColor=navy)),
+         Paragraph("Sistema de Premiação — Equipe Financeiro", S("tr", fontName="Helvetica", fontSize=9, textColor=gray, alignment=2))],
+        [Paragraph("Relatório Gerencial de Cobrança", S("sl", fontName="Helvetica", fontSize=10, textColor=gray)),
+         Paragraph(mes_ref, S("sr", fontName="Helvetica-Bold", fontSize=10, textColor=navy, alignment=2))],
+    ], colWidths=[11*cm, 6.7*cm])
+    title_block.setStyle(TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "BOTTOM"),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING", (0,0), (-1,-1), 0),
+    ]))
+    story.append(title_block)
+    story.append(HRFlowable(width="100%", thickness=3, color=yellow, spaceBefore=8, spaceAfter=14))
     # KPIs
     premio_cob = sum(m["premio"]/2 for m in METAS if faixas_ok[m["col"]])
     n_ativos = len([n for n in cobradores_list if n not in COBRADORES_INATIVOS])
     kpi_t = Table([
-        ["Cobradores ativos","Excluídos","Prêmio por cobrador","Prêmio por líder"],
+        ["Cobradores ativos","Excluidos","Premio por cobrador","Premio por lider"],
         [str(n_ativos), str(n_excl), fmt_br(premio_cob), fmt_br(premio_cob)],
-    ], colWidths=[4.2*cm]*4)
+    ], colWidths=[4.25*cm, 4.25*cm, 4.25*cm, 4.25*cm])
     kpi_t.setStyle(TableStyle([
         ("BACKGROUND",(0,0),(-1,0),navy),("TEXTCOLOR",(0,0),(-1,0),colors.white),
         ("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,0),8),
