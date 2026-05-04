@@ -104,73 +104,19 @@ def gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
-*, html, body, [class*="css"] { font-family: 'Montserrat', sans-serif !important; }
-.header-bar {
-    background:#041747; padding:14px 32px; display:flex; align-items:center;
-    justify-content:space-between; border-bottom:4px solid #FAC318;
-    margin:-1rem -1rem 0 -1rem;
-}
-.header-bar img { height:36px; }
-.header-bar span { color:rgba(255,255,255,.65); font-size:13px; font-weight:500; letter-spacing:.03em; }
-.page-title { color:#041747; font-size:22px; font-weight:800; margin:1.5rem 0 2px; }
-.page-sub { color:#6b7280; font-size:13px; margin-bottom:1.5rem; }
-.kpi {
-    background:white; border-radius:12px; padding:1rem 1.25rem;
-    border:1px solid #e8eaf0; border-top:3px solid #041747;
-    box-shadow:0 1px 4px rgba(0,0,0,.04);
-}
-.kpi.green { border-top-color:#0F8C3B; }
-.kpi.yellow { border-top-color:#FAC318; }
-.kpi-label { font-size:10px; color:#9ca3af; text-transform:uppercase; letter-spacing:.08em; font-weight:700; margin-bottom:6px; }
-.kpi-value { font-size:22px; font-weight:800; color:#041747; }
-.kpi-value.green { color:#0F8C3B; }
-.kpi-value.amber { color:#b45309; }
-.cobrador-header {
-    display:flex; align-items:center; justify-content:space-between;
-    padding-bottom:14px; border-bottom:1px solid #f0f0f0; margin-bottom:14px;
-}
-.avatar {
-    width:44px; height:44px; border-radius:50%; background:#041747;
-    display:flex; align-items:center; justify-content:center;
-    font-size:15px; font-weight:800; color:white; flex-shrink:0;
-}
-.badge-inativo { background:#fee2e2; color:#991b1b; padding:2px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-.prize-label { font-size:10px; color:#9ca3af; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
-.prize-val { font-size:26px; font-weight:800; }
-.prize-val.green { color:#0F8C3B; }
-.prize-val.zero { color:#d1d5db; }
-.info-strip {
-    background:#f0f6ff; border-left:3px solid #0071FE; border-radius:0 8px 8px 0;
-    padding:10px 14px; font-size:13px; color:#1e40af; margin:1rem 0; font-weight:500;
-}
-.stTabs [data-baseweb="tab-list"] { gap:6px; border-bottom:1px solid #e8eaf0; padding-bottom:0; }
-.stTabs [data-baseweb="tab"] {
-    background:#f8f9fc !important; border-radius:8px 8px 0 0 !important;
-    font-family:'Montserrat',sans-serif !important; font-weight:600 !important;
-    font-size:12px !important; padding:8px 18px !important;
-    border:1px solid #e8eaf0 !important; border-bottom:none !important;
-    color:#6b7280 !important;
-}
-.stTabs [aria-selected="true"] { background:#041747 !important; color:white !important; border-color:#041747 !important; }
-.stExpander { border:1px solid #e8eaf0 !important; border-radius:12px !important; margin-bottom:10px !important; }
-div[data-testid="stExpanderDetails"] { padding:0 1rem 1rem !important; }
-.stButton > button {
-    background:#041747; color:white; border-radius:8px; border:none;
-    font-family:'Montserrat',sans-serif; font-weight:700; padding:8px 20px;
-    font-size:13px;
-}
-.stButton > button:hover { background:#0a2460; border:none; }
-.stFileUploader { border-radius:12px !important; }
-footer, #MainMenu { display:none !important; }
-[data-testid="stSidebar"] { background:#f8f9fc; border-right:1px solid #e8eaf0; }
-[data-testid="stSidebar"] .stRadio label { font-weight:600; font-size:13px; }
-</style></style>""", unsafe_allow_html=True)
-st.markdown(f"""
-<div class="header-bar">
-  <img src="data:image/png;base64,{LOGO_B64}" alt="Grupo LLE">
-  <span>Sistema de Premiação — Equipe Financeiro</span>
-</div>
+footer {visibility: hidden;}
+#MainMenu {visibility: hidden;}
+section[data-testid="stSidebar"] { background: #f8f9fc; }
+</style>
 """, unsafe_allow_html=True)
+st.markdown(f"""
+<div style="background:#041747;padding:12px 24px;display:flex;align-items:center;
+    justify-content:space-between;border-bottom:4px solid #FAC318;margin-bottom:1rem;">
+  <img src="data:image/png;base64,{{LOGO_B64}}" alt="Grupo LLE" style="height:34px;">
+  <span style="color:rgba(255,255,255,.7);font-size:13px;font-family:sans-serif;">
+    Sistema de Premiacao - Equipe Financeiro</span>
+</div>
+""".replace("{{LOGO_B64}}", LOGO_B64), unsafe_allow_html=True)
 
 # ── Constantes ───────────────────────────────────────────────────────────
 METAS = [
