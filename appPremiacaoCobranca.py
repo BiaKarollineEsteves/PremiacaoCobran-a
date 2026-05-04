@@ -107,16 +107,39 @@ st.markdown("""
 footer {visibility: hidden;}
 #MainMenu {visibility: hidden;}
 section[data-testid="stSidebar"] { background: #f8f9fc; }
+.lle-kpi { background:white; border-radius:12px; padding:1rem 1.25rem;
+    border:1px solid #e8eaf0; margin-bottom:4px; }
+.lle-kpi-label { font-size:10px; color:#9ca3af; text-transform:uppercase;
+    letter-spacing:.08em; font-weight:700; margin-bottom:4px; font-family:Montserrat,sans-serif; }
+.lle-kpi-value { font-size:22px; font-weight:800; font-family:Montserrat,sans-serif; }
+.lle-title { font-family:Montserrat,sans-serif; font-size:22px; font-weight:800;
+    color:#041747; margin:1.5rem 0 2px; }
+.lle-sub { font-family:Montserrat,sans-serif; font-size:13px;
+    color:#6b7280; margin-bottom:1.5rem; }
+.lle-cobrador-header { display:flex; align-items:center; justify-content:space-between;
+    padding-bottom:12px; border-bottom:1px solid #f0f0f0; margin-bottom:14px; }
+.lle-avatar { width:42px; height:42px; border-radius:50%; background:#041747;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; font-weight:800; color:white; flex-shrink:0; }
+.lle-strip { background:#f0f6ff; border-left:3px solid #0071FE;
+    border-radius:0 8px 8px 0; padding:10px 14px; font-size:13px;
+    color:#1e40af; margin:1rem 0; font-weight:500; font-family:Montserrat,sans-serif; }
+.lle-section { font-family:Montserrat,sans-serif; font-size:16px; font-weight:800;
+    color:#041747; margin:2rem 0 .5rem; }
 </style>
 """, unsafe_allow_html=True)
-st.markdown(f"""
-<div style="background:#041747;padding:12px 24px;display:flex;align-items:center;
-    justify-content:space-between;border-bottom:4px solid #FAC318;margin-bottom:1rem;">
-  <img src="data:image/png;base64,{{LOGO_B64}}" alt="Grupo LLE" style="height:34px;">
-  <span style="color:rgba(255,255,255,.7);font-size:13px;font-family:sans-serif;">
-    Sistema de Premiacao - Equipe Financeiro</span>
-</div>
-""".replace("{{LOGO_B64}}", LOGO_B64), unsafe_allow_html=True)
+logo_html = f'<div style="background:#041747;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:4px solid #FAC318;margin-bottom:1.5rem;border-radius:0 0 0 0;"><img src="data:image/png;base64,' + LOGO_B64 + '" alt="Grupo LLE" style="height:34px;filter:none;"><span style="color:rgba(255,255,255,.75);font-size:13px;font-family:Montserrat,sans-serif;font-weight:500;">Sistema de Premiacao — Equipe Financeiro</span></div>'
+st.markdown(logo_html, unsafe_allow_html=True)
+
+
+def kpi_card(label, value, color="#041747", top_color=None):
+    tc = top_color or color
+    return ('<div class="lle-kpi" style="border-top:3px solid ' + tc + ';">' +
+            '<div class="lle-kpi-label">' + label + '</div>' +
+            '<div class="lle-kpi-value" style="color:' + color + '">' + str(value) + '</div></div>')
+
+def info_strip(content):
+    return '<div class="lle-strip">' + content + '</div>'
 
 # ── Constantes ───────────────────────────────────────────────────────────
 METAS = [
@@ -236,16 +259,13 @@ if pagina=="Cobradores":
     total_equipe,faixas_ok,totais=recalc_totais()
     premio_cobrador=sum(m["premio"]/2 for m in METAS if faixas_ok[m["col"]])
 
-    # ── KPIs ──
-    c1,c2,c3,c4=st.columns(4)
-    for col,label,val,cls in [
-        (c1,"Cobradores",len(cobradores_list),""),
-        (c2,"Registros válidos",len(get_clean_filtered()),""),
-        (c3,"Excluídos (ticket+manual)",len(excluidos)+len(st.session_state.excluidos_manual),"yellow"),
-        (c4,"Prêmio por cobrador ativo",fmt_br(premio_cobrador),"green"),
-    ]:
-        col.markdown(f'<div class="kpi {cls}"><div class="kpi-label">{label}</div><div class="kpi-value {cls}">{val}</div></div>', unsafe_allow_html=True)
-
+    # KPIs
+    c1,c2,c3,c4 = st.columns(4)
+    c1.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #041747"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Cobradores</div><div style="font-size:22px;font-weight:800;color:#041747">{len(cobradores_list)}</div></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #041747"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Registros validos</div><div style="font-size:22px;font-weight:800;color:#041747">{len(get_clean_filtered())}</div></div>', unsafe_allow_html=True)
+    n_excl_total = len(excluidos) + len(st.session_state.excluidos_manual)
+    c3.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #FAC318"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Excluidos</div><div style="font-size:22px;font-weight:800;color:#b45309">{n_excl_total}</div></div>', unsafe_allow_html=True)
+    c4.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #0F8C3B"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Premio por cobrador</div><div style="font-size:22px;font-weight:800;color:#0F8C3B">{fmt_br(premio_cobrador)}</div></div>', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Cards por cobrador ──
@@ -259,27 +279,25 @@ if pagina=="Cobradores":
         icon="🔴" if inativo else ("🟢" if premio_total>0 else "🟡")
 
         with st.expander(f"{nome_display} - {fmt_br(premio_total)} {icon}", expanded=not inativo):
-            inativo_html='<span class="badge-inativo">Inativo · sem premiação</span>' if inativo else ""
-            st.markdown(f'''<div class="cobrador-header">
-              <div style="display:flex;align-items:center;gap:12px">
-                <div class="avatar">{initials}</div>
-                <div>
-                  <div style="font-size:16px;font-weight:800;color:{NAVY}">{nome_display} {inativo_html}</div>
-                  <div style="font-size:11px;color:#9ca3af;font-weight:600;margin-top:2px">COBRADOR</div>
-                </div>
-              </div>
-              <div style="text-align:right">
-                <div class="prize-label">PREMIAÇÃO DO MÊS</div>
-                <div class="prize-val {prize_cls}">{fmt_br(premio_total)}</div>
-              </div>
-            </div>''', unsafe_allow_html=True)
+            inativo_html='<span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-left:8px">Inativo · sem premiação</span>' if inativo else ""
+            prize_color = "#0F8C3B" if (not inativo and premio_total > 0) else "#d1d5db"
+            st.markdown(
+                f'<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid #f0f0f0;margin-bottom:14px">' +
+                f'<div style="display:flex;align-items:center;gap:12px">' +
+                f'<div style="width:42px;height:42px;border-radius:50%;background:#041747;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white">{initials}</div>' +
+                f'<div><div style="font-size:16px;font-weight:800;color:#041747">{nome_display} {inativo_html}</div>' +
+                f'<div style="font-size:11px;color:#9ca3af;font-weight:600;margin-top:2px">COBRADOR</div></div></div>' +
+                f'<div style="text-align:right"><div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em">PREMIACAO DO MES</div>' +
+                f'<div style="font-size:24px;font-weight:800;color:{prize_color}">{fmt_br(premio_total)}</div></div></div>',
+                unsafe_allow_html=True
+            )
 
             sub_cli=clientes_por[nome]
             n_excl_cob=len(excluidos[excluidos["Cobrador"]==nome])
             tab_prem,tab_cli,tab_excl=st.tabs([
                 "Premiacao por faixa",
                 f"Clientes ({len(sub_cli)})",
-                f"🚫  Excluídos ({n_excl_cob})",
+                f"Excluidos ({n_excl_cob})",
             ])
 
             # ── Tab premiação ──
@@ -295,9 +313,9 @@ if pagina=="Cobradores":
                     pct_part=round(val_ind/val_grp*100,1) if val_grp>0 else 0.0
                     faltou=max(0,m["meta"]-val_grp)
 
-                    if inativo: premio_f,status="R$ 0,00","🔴 Inativo"
-                    elif atingiu: premio_f,status=fmt_br(m["premio"]/2),"✅ Batida"
-                    else: premio_f,status="—","❌ Não batida"
+                    if inativo: premio_f,status="R$ 0,00","Inativo"
+                    elif atingiu: premio_f,status=fmt_br(m["premio"]/2),"Batida"
+                    else: premio_f,status="—","Nao batida"
 
                     rows_data.append({
                         "Faixa":m["faixa"],
@@ -420,7 +438,7 @@ if pagina=="Cobradores":
         "Total equipe":fmt_br(total_equipe[m["col"]]),
         "Meta":fmt_br(m["meta"]),
         "Progresso (%)":round(total_equipe[m["col"]]/m["meta"]*100,1),
-        "Status":"✅ Batida" if faixas_ok[m["col"]] else "❌ Não batida",
+        "Status":"Batida" if faixas_ok[m["col"]] else "Nao batida",
         "Prêmio/líder":fmt_br(m["premio"]/2) if faixas_ok[m["col"]] else "—",
     } for m in METAS]
     col_l,col_r=st.columns([3,1])
@@ -428,7 +446,8 @@ if pagina=="Cobradores":
         st.dataframe(pd.DataFrame(rows_lid),use_container_width=True,hide_index=True,
             column_config={"Progresso (%)":st.column_config.ProgressColumn("Progresso",min_value=0,max_value=100,format="%.1f%%")})
     with col_r:
-        st.markdown(f'<div class="kpi green" style="margin-top:8px"><div class="kpi-label">Prêmio por líder</div><div class="kpi-value green">{fmt_br(premio_lider)}</div><div style="font-size:11px;color:#9ca3af;margin-top:4px">Teto: R$ 935,00</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #0F8C3B;margin-top:8px"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Premio por lider</div><div style="font-size:22px;font-weight:800;color:#0F8C3B">{fmt_br(premio_lider)}</div><div style="font-size:11px;color:#9ca3af;margin-top:4px">Teto: R$ 935,00</div></div>', unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # PÁGINA 2 — LÍDERES CARTEIRAS
@@ -440,10 +459,10 @@ if pagina=="Cobradores":
     mes_input = st.text_input("Mes de referencia", value=datetime.now().strftime("%B %Y").title(), key="mes_ref")
     if st.button("Gerar PDF"):
         with st.spinner("Gerando PDF..."):
-            n_excl_total = len(excluidos_ticket) + len(st.session_state.excluidos_manual)
-            pdf_buf = gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl_total, mes_input)
+            n_excl_pdf = len(excluidos) + len(st.session_state.excluidos_manual)
+            pdf_buf = gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl_pdf, mes_input)
         st.download_button(
-            label="Baixar relatório PDF",
+            label="Baixar PDF",
             data=pdf_buf,
             file_name=f"relatorio_premiacao_{mes_input.replace(' ','_')}.pdf",
             mime="application/pdf",
@@ -529,7 +548,8 @@ elif pagina=="Líderes":
 
     premio_total_cart=sum(PREMIOS_LIDER_CARTEIRA.get(n,0) for n in niveis)
     st.markdown("---")
-    st.markdown(f'<div class="kpi green" style="max-width:280px"><div class="kpi-label">Prêmio total carteiras (por líder)</div><div class="kpi-value green">{fmt_br(premio_total_cart)}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #0F8C3B;max-width:280px"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Premio total carteiras (por lider)</div><div style="font-size:22px;font-weight:800;color:#0F8C3B">{fmt_br(premio_total_cart)}</div></div>', unsafe_allow_html=True)
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # PÁGINA 3 — METAS
