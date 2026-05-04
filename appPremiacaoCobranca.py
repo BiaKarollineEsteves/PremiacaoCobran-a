@@ -81,23 +81,23 @@ footer, #MainMenu {{ display:none !important; }}
 
 # ── Constantes ───────────────────────────────────────────────────────────
 METAS = [
-    {{"faixa":"Curto prazo (10–30d)",     "col":"De 0 a 30",     "meta":700000,"premio":260}},
-    {{"faixa":"Médio prazo (31–60d)",      "col":"De 31 a 60",    "meta":120000,"premio":180}},
-    {{"faixa":"Médio-longo (61–90d)",      "col":"De 60 a 91",    "meta":80000, "premio":210}},
-    {{"faixa":"Longo prazo (91–180d)",     "col":"De 91 a  180",  "meta":70000, "premio":260}},
-    {{"faixa":"Muito atrasado (181–360d)", "col":"De 181 360",    "meta":50000, "premio":260}},
-    {{"faixa":"Perdido (>360d)",           "col":"Maior que 360", "meta":50000, "premio":300}},
-    {{"faixa":"Juros + multa",             "col":"Vlr Calculado", "meta":260000,"premio":400}},
+    {"faixa":"Curto prazo (10–30d)",     "col":"De 0 a 30",     "meta":700000,"premio":260},
+    {"faixa":"Médio prazo (31–60d)",      "col":"De 31 a 60",    "meta":120000,"premio":180},
+    {"faixa":"Médio-longo (61–90d)",      "col":"De 60 a 91",    "meta":80000, "premio":210},
+    {"faixa":"Longo prazo (91–180d)",     "col":"De 91 a  180",  "meta":70000, "premio":260},
+    {"faixa":"Muito atrasado (181–360d)", "col":"De 181 360",    "meta":50000, "premio":260},
+    {"faixa":"Perdido (>360d)",           "col":"Maior que 360", "meta":50000, "premio":300},
+    {"faixa":"Juros + multa",             "col":"Vlr Calculado", "meta":260000,"premio":400},
 ]
 ORDEM_FAIXAS = [m["faixa"] for m in METAS]
-COBRADORES_INATIVOS = {{"PEDRO.SILVA"}}
-PREMIOS_LIDER_CARTEIRA = {{1:100, 2:300, 3:500}}
+COBRADORES_INATIVOS = {"PEDRO.SILVA"}
+PREMIOS_LIDER_CARTEIRA = {1:100, 2:300, 3:500}
 
 def fmt_br(v):
     try:
         v2 = float(v)
         if v2!=v2: v2=0.0
-        return f"R$ {{v2:,.2f}}".replace(",","X").replace(".",",").replace("X",".")
+        return f"R$ {v2:,.2f}".replace(",","X").replace(".",",").replace("X",".")
     except: return "R$ 0,00"
 
 def safe_float(v):
@@ -155,7 +155,7 @@ if pagina=="🏆  Cobradores":
         st.stop()
 
     try: df_raw=load_relatorio(uploaded)
-    except Exception as e: st.error(f"Erro ao ler arquivo: {{e}}"); st.stop()
+    except Exception as e: st.error(f"Erro ao ler arquivo: {e}"); st.stop()
 
     excluidos=df_raw[df_raw["Histórico"].apply(has_ticket)]
     clean=df_raw[~df_raw["Histórico"].apply(has_ticket)].copy()
@@ -213,19 +213,19 @@ if pagina=="🏆  Cobradores":
         prize_cls="zero" if (inativo or premio_total==0) else "green"
         icon="🔴" if inativo else ("🟢" if premio_total>0 else "🟡")
 
-        with st.expander(f"{{icon}}  {{nome_display}}   ·   {{fmt_br(premio_total)}}", expanded=not inativo):
+        with st.expander(f"{icon}  {nome_display}   ·   {fmt_br(premio_total)}", expanded=not inativo):
             inativo_html='<span class="badge-inativo">Inativo · sem premiação</span>' if inativo else ""
             st.markdown(f'''<div class="cobrador-header">
               <div style="display:flex;align-items:center;gap:12px">
-                <div class="avatar">{{initials}}</div>
+                <div class="avatar">{initials}</div>
                 <div>
-                  <div style="font-size:16px;font-weight:800;color:{NAVY}">{{nome_display}} {{inativo_html}}</div>
+                  <div style="font-size:16px;font-weight:800;color:{NAVY}">{nome_display} {inativo_html}</div>
                   <div style="font-size:11px;color:#9ca3af;font-weight:600;margin-top:2px">COBRADOR</div>
                 </div>
               </div>
               <div style="text-align:right">
                 <div class="prize-label">PREMIAÇÃO DO MÊS</div>
-                <div class="prize-val {{prize_cls}}">{{fmt_br(premio_total)}}</div>
+                <div class="prize-val {prize_cls}">{fmt_br(premio_total)}</div>
               </div>
             </div>''', unsafe_allow_html=True)
 
@@ -233,8 +233,8 @@ if pagina=="🏆  Cobradores":
             n_excl_cob=len(excluidos[excluidos["Cobrador"]==nome])
             tab_prem,tab_cli,tab_excl=st.tabs([
                 "📊  Premiação por faixa",
-                f"👥  Clientes recuperados ({{len(sub_cli)}})",
-                f"🚫  Excluídos ({{n_excl_cob}})",
+                f"👥  Clientes recuperados ({len(sub_cli)})",
+                f"🚫  Excluídos ({n_excl_cob})",
             ])
 
             # ── Tab premiação ──
@@ -254,17 +254,17 @@ if pagina=="🏆  Cobradores":
                     elif atingiu: premio_f,status=fmt_br(m["premio"]/2),"✅ Batida"
                     else: premio_f,status="—","❌ Não batida"
 
-                    rows_data.append({{
+                    rows_data.append({
                         "Faixa":m["faixa"],
                         "Você recuperou":fmt_br(val_ind),
-                        "Sua contrib.":f"{{pct_ind_num:.1f}}%",
-                        "% do total equipe":f"{{pct_part:.1f}}%",
+                        "Sua contrib.":f"{pct_ind_num:.1f}%",
+                        "% do total equipe":f"{pct_part:.1f}%",
                         "Total equipe":fmt_br(val_grp),
                         "Meta":fmt_br(m["meta"]),
                         "Progresso equipe (%)":pct_grp_num,
                         "Status":status,
                         "Prêmio":premio_f,
-                    }})
+                    })
 
                 df_prem=pd.DataFrame(rows_data)
                 # Ordenar por ordem correta das faixas
@@ -272,33 +272,33 @@ if pagina=="🏆  Cobradores":
                 df_prem=df_prem.sort_values("_ord").drop(columns=["_ord"])
 
                 st.dataframe(df_prem, use_container_width=True, hide_index=True,
-                    column_config={{
+                    column_config={
                         "Progresso equipe (%)": st.column_config.ProgressColumn(
                             "Progresso equipe", min_value=0, max_value=100, format="%.1f%%"
                         ),
-                    }}
+                    }
                 )
                 if not inativo:
                     faixas_ganhas=[m for m in METAS if faixas_ok[m["col"]]]
                     faixas_perdidas=[m for m in METAS if not faixas_ok[m["col"]]]
                     linhas_g="".join(
-                        f"<li><b>{{m['faixa']}}</b>: equipe recuperou {{fmt_br(total_equipe[m['col']])}} "
-                        f"(meta {{fmt_br(m['meta'])}}) → prêmio <b style='color:{{GREEN}}'>{{fmt_br(m['premio']/2)}}</b> por cobrador</li>"
+                        f"<li><b>{m['faixa']}</b>: equipe recuperou {fmt_br(total_equipe[m['col']])} "
+                        f"(meta {fmt_br(m['meta'])}) → prêmio <b style='color:{GREEN}'>{fmt_br(m['premio']/2)}</b> por cobrador</li>"
                         for m in faixas_ganhas)
                     linhas_p="".join(
-                        f"<li><b>{{m['faixa']}}</b>: equipe fez {{fmt_br(total_equipe[m['col']])}} "
-                        f"de {{fmt_br(m['meta'])}} — faltou {{fmt_br(max(0,m['meta']-total_equipe[m['col']]))}}</li>"
+                        f"<li><b>{m['faixa']}</b>: equipe fez {fmt_br(total_equipe[m['col']])} "
+                        f"de {fmt_br(m['meta'])} — faltou {fmt_br(max(0,m['meta']-total_equipe[m['col']]))}</li>"
                         for m in faixas_perdidas)
                     resumo="".join([
-                        f"<b style='color:#065f46'>✅ Faixas premiadas:</b><ul>{{linhas_g}}</ul>" if linhas_g else "",
-                        f"<b style='color:#991b1b'>❌ Não premiadas:</b><ul>{{linhas_p}}</ul>" if linhas_p else "",
-                        f"<b>Total do mês: {{fmt_br(premio_total)}}</b>",
+                        f"<b style='color:#065f46'>✅ Faixas premiadas:</b><ul>{linhas_g}</ul>" if linhas_g else "",
+                        f"<b style='color:#991b1b'>❌ Não premiadas:</b><ul>{linhas_p}</ul>" if linhas_p else "",
+                        f"<b>Total do mês: {fmt_br(premio_total)}</b>",
                     ])
-                    st.markdown(f'<div class="info-strip" style="margin-top:10px">{{resumo}}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="info-strip" style="margin-top:10px">{resumo}</div>', unsafe_allow_html=True)
 
             # ── Tab clientes ──
             with tab_cli:
-                grupos=defaultdict(lambda:{{"vlr":0.0,"juros":0.0,"faixas":set(),"baixas":[]}})
+                grupos=defaultdict(lambda:{"vlr":0.0,"juros":0.0,"faixas":set(),"baixas":[]})
                 for _,row in sub_cli.iterrows():
                     parc=str(row.get("Parceiro","") or "").strip()
                     grupos[parc]["vlr"]+=safe_float(row.get("Vlr.Desdob.",0))
@@ -308,7 +308,7 @@ if pagina=="🏆  Cobradores":
                     b=str(row.get("Baixa","") or "").split(" ")[0].split("T")[0]
                     if b and b not in grupos[parc]["baixas"]: grupos[parc]["baixas"].append(b)
 
-                df_cli=pd.DataFrame([{{
+                df_cli=pd.DataFrame([{
                     "✓":parc not in st.session_state.excluidos_manual,
                     "Parceiro":parc,
                     "Total recuperado":g["vlr"],
@@ -317,17 +317,17 @@ if pagina=="🏆  Cobradores":
                     ) or "—",
                     "Datas de baixa":", ".join(sorted(set(g["baixas"]))),
                     "Juros/multa":g["juros"],
-                }} for parc,g in sorted(grupos.items(),key=lambda x:-x[1]["vlr"])])
+                } for parc,g in sorted(grupos.items(),key=lambda x:-x[1]["vlr"])])
 
                 if df_cli.empty:
                     st.info("Nenhum cliente recuperado.")
                 else:
                     col_busca, col_faixa = st.columns([2,1])
                     with col_busca:
-                        busca=st.text_input("🔍 Buscar cliente",key=f"busca_{{nome}}",placeholder="Nome do parceiro...")
+                        busca=st.text_input("🔍 Buscar cliente",key=f"busca_{nome}",placeholder="Nome do parceiro...")
                     with col_faixa:
                         faixas_disp=["Todas"]+ORDEM_FAIXAS[:-1]+["Juros + multa"]
-                        filtro_faixa=st.selectbox("Filtrar faixa",faixas_disp,key=f"faixa_{{nome}}")
+                        filtro_faixa=st.selectbox("Filtrar faixa",faixas_disp,key=f"faixa_{nome}")
 
                     df_show=df_cli.copy()
                     if busca: df_show=df_show[df_show["Parceiro"].str.contains(busca,case=False,na=False)]
@@ -335,11 +335,11 @@ if pagina=="🏆  Cobradores":
 
                     edited=st.data_editor(
                         df_show, use_container_width=True, hide_index=True,
-                        column_config={{
+                        column_config={
                             "✓": st.column_config.CheckboxColumn("Contabilizar",help="Desmarque para tirar da premiação"),
                             "Total recuperado": st.column_config.NumberColumn("Total recuperado",format="R$ %.2f"),
                             "Juros/multa": st.column_config.NumberColumn("Juros/multa",format="R$ %.2f"),
-                        }},
+                        },
                         disabled=["Parceiro","Total recuperado","Faixa","Datas de baixa","Juros/multa"],
                     )
 
@@ -349,12 +349,12 @@ if pagina=="🏆  Cobradores":
                     st.session_state.excluidos_manual=(st.session_state.excluidos_manual|desmarcados)-marcados
 
                     if desmarcados:
-                        st.warning(f"⚠️ {{len(desmarcados)}} parceiro(s) excluídos manualmente. Clique em outro cobrador e volte para ver o recálculo.")
-                        if st.button("🔄 Recalcular agora", key=f"recalc_{{nome}}"):
+                        st.warning(f"⚠️ {len(desmarcados)} parceiro(s) excluídos manualmente. Clique em outro cobrador e volte para ver o recálculo.")
+                        if st.button("🔄 Recalcular agora", key=f"recalc_{nome}"):
                             total_equipe,faixas_ok,totais=recalc_totais()
                             st.rerun()
 
-                    st.caption(f"{{len(df_show)}} parceiros · Total: {{fmt_br(df_show['Total recuperado'].sum())}}")
+                    st.caption(f"{len(df_show)} parceiros · Total: {fmt_br(df_show['Total recuperado'].sum())}")
 
             # ── Tab excluídos ──
             with tab_excl:
@@ -365,23 +365,23 @@ if pagina=="🏆  Cobradores":
                     df_excl.columns=["Parceiro","Vencimento","Valor","Histórico"]
                     df_excl["Valor"]=df_excl["Valor"].apply(safe_float)
                     st.dataframe(df_excl,use_container_width=True,hide_index=True,
-                        column_config={{"Valor":st.column_config.NumberColumn("Valor",format="R$ %.2f")}})
+                        column_config={"Valor":st.column_config.NumberColumn("Valor",format="R$ %.2f")})
 
     # ── Card líderes ──
     st.markdown(f'<div style="color:{NAVY};font-size:16px;font-weight:800;margin:2rem 0 .5rem">Premiação dos Líderes (aging)</div>', unsafe_allow_html=True)
     premio_lider=sum(m["premio"]/2 for m in METAS if faixas_ok[m["col"]])
-    rows_lid=[{{
+    rows_lid=[{
         "Faixa":m["faixa"],
         "Total equipe":fmt_br(total_equipe[m["col"]]),
         "Meta":fmt_br(m["meta"]),
         "Progresso (%)":round(total_equipe[m["col"]]/m["meta"]*100,1),
         "Status":"✅ Batida" if faixas_ok[m["col"]] else "❌ Não batida",
         "Prêmio/líder":fmt_br(m["premio"]/2) if faixas_ok[m["col"]] else "—",
-    }} for m in METAS]
+    } for m in METAS]
     col_l,col_r=st.columns([3,1])
     with col_l:
         st.dataframe(pd.DataFrame(rows_lid),use_container_width=True,hide_index=True,
-            column_config={{"Progresso (%)":st.column_config.ProgressColumn("Progresso",min_value=0,max_value=100,format="%.1f%%")}})
+            column_config={"Progresso (%)":st.column_config.ProgressColumn("Progresso",min_value=0,max_value=100,format="%.1f%%")})
     with col_r:
         st.markdown(f'<div class="kpi green" style="margin-top:8px"><div class="kpi-label">Prêmio por líder</div><div class="kpi-value green">{fmt_br(premio_lider)}</div><div style="font-size:11px;color:#9ca3af;margin-top:4px">Teto: R$ 935,00</div></div>', unsafe_allow_html=True)
 
@@ -404,28 +404,28 @@ elif pagina=="👔  Líderes":
     with col_a:
         st.markdown(f'<div style="font-weight:700;color:{NAVY};margin-bottom:8px">📅 Mês anterior (referência)</div>', unsafe_allow_html=True)
         for nome,key,_ in pares_config:
-            uploads[f"{{key}}_ant"]=st.file_uploader(nome,type=["xlsx","xls"],key=f"{{key}}_ant")
+            uploads[f"{key}_ant"]=st.file_uploader(nome,type=["xlsx","xls"],key=f"{key}_ant")
     with col_b:
         st.markdown(f'<div style="font-weight:700;color:{NAVY};margin-bottom:8px">📅 Mês atual (hoje)</div>', unsafe_allow_html=True)
         for nome,key,_ in pares_config:
-            uploads[f"{{key}}_hj"]=st.file_uploader(nome,type=["xlsx","xls"],key=f"{{key}}_hj")
+            uploads[f"{key}_hj"]=st.file_uploader(nome,type=["xlsx","xls"],key=f"{key}_hj")
 
-    prontos=sum(1 for n,k,_ in pares_config if uploads[f"{{k}}_ant"] and uploads[f"{{k}}_hj"])
+    prontos=sum(1 for n,k,_ in pares_config if uploads[f"{k}_ant"] and uploads[f"{k}_hj"])
     if prontos<4:
-        st.progress(prontos/4,text=f"{{prontos}}/4 carteiras prontas")
+        st.progress(prontos/4,text=f"{prontos}/4 carteiras prontas")
         st.stop()
 
     st.markdown("---")
     niveis=[]
     for nome,key,metas_pct in pares_config:
         try:
-            df_ant=load_carteira(uploads[f"{{key}}_ant"])
-            df_hj=load_carteira(uploads[f"{{key}}_hj"])
+            df_ant=load_carteira(uploads[f"{key}_ant"])
+            df_hj=load_carteira(uploads[f"{key}_hj"])
         except Exception as e:
-            st.error(f"Erro em {{nome}}: {{e}}"); continue
+            st.error(f"Erro em {nome}: {e}"); continue
 
         total_ant=df_ant["Em Atraso"].sum()
-        df_merge=df_ant.merge(df_hj[["cod_matriz","Em Atraso"]].rename(columns={{"Em Atraso":"Atual"}}),on="cod_matriz",how="left")
+        df_merge=df_ant.merge(df_hj[["cod_matriz","Em Atraso"]].rename(columns={"Em Atraso":"Atual"}),on="cod_matriz",how="left")
         df_merge["Atual"]=df_merge["Atual"].fillna(0)
         df_merge["Recuperado"]=(df_merge["Em Atraso"]-df_merge["Atual"]).clip(lower=0)
         total_rec=df_merge["Recuperado"].sum()
@@ -434,25 +434,25 @@ elif pagina=="👔  Líderes":
         nivel=3 if pct_rec>=metas_pct[2] else 2 if pct_rec>=metas_pct[1] else 1 if pct_rec>=metas_pct[0] else 0
         niveis.append(nivel)
         premio=PREMIOS_LIDER_CARTEIRA.get(nivel,0)
-        cor={{0:"#9ca3af",1:"#b45309",2:BLUE,3:GREEN}}[nivel]
-        badge={{0:"Sem nível",1:"🥉 Nível 1",2:"🥈 Nível 2",3:"🥇 Nível 3"}}[nivel]
+        cor={0:"#9ca3af",1:"#b45309",2:BLUE,3:GREEN}[nivel]
+        badge={0:"Sem nível",1:"🥉 Nível 1",2:"🥈 Nível 2",3:"🥇 Nível 3"}[nivel]
 
-        with st.expander(f"{{nome}}  ·  {{badge}}  ·  {{fmt_br(premio)}}", expanded=True):
+        with st.expander(f"{nome}  ·  {badge}  ·  {fmt_br(premio)}", expanded=True):
             c1,c2,c3,c4=st.columns(4)
             c1.metric("Carteira referência",fmt_br(total_ant))
             c2.metric("Carteira atual",fmt_br(df_hj["Em Atraso"].sum()))
             c3.metric("Recuperado",fmt_br(total_rec))
-            c4.metric("% recuperado",f"{{pct_rec:.2f}}%")
+            c4.metric("% recuperado",f"{pct_rec:.2f}%")
             m1,m2,m3=metas_pct
             p1=min(pct_rec/m3*100,100)
             st.markdown(f'''<div style="margin:10px 0 4px;font-size:11px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Progresso por nível</div>
             <div style="position:relative;height:18px;background:#e2e8f0;border-radius:9px;overflow:hidden">
-              <div style="height:100%;width:{{p1:.1f}}%;background:{{cor}};border-radius:9px;transition:width .5s"></div>
-              <div style="position:absolute;left:{{m1/m3*100:.1f}}%;top:0;height:100%;width:2px;background:white;opacity:.8"></div>
-              <div style="position:absolute;left:{{m2/m3*100:.1f}}%;top:0;height:100%;width:2px;background:white;opacity:.8"></div>
+              <div style="height:100%;width:{p1:.1f}%;background:{cor};border-radius:9px;transition:width .5s"></div>
+              <div style="position:absolute;left:{m1/m3*100:.1f}%;top:0;height:100%;width:2px;background:white;opacity:.8"></div>
+              <div style="position:absolute;left:{m2/m3*100:.1f}%;top:0;height:100%;width:2px;background:white;opacity:.8"></div>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:10px;color:#9ca3af;font-weight:700;margin-top:4px">
-              <span>0%</span><span>🥉 {{m1}}%</span><span>🥈 {{m2}}%</span><span>🥇 {{m3}}%</span>
+              <span>0%</span><span>🥉 {m1}%</span><span>🥈 {m2}%</span><span>🥇 {m3}%</span>
             </div>''', unsafe_allow_html=True)
             df_det=df_merge[df_merge["Recuperado"]>0].sort_values("Recuperado",ascending=False)
             if not df_det.empty:
@@ -460,11 +460,11 @@ elif pagina=="👔  Líderes":
                 df_s=df_det[["nome_matriz","Em Atraso","Atual","Recuperado"]].copy()
                 df_s.columns=["Cliente","Saldo anterior","Saldo atual","Recuperado"]
                 st.dataframe(df_s,use_container_width=True,hide_index=True,
-                    column_config={{
+                    column_config={
                         "Saldo anterior":st.column_config.NumberColumn("Saldo anterior",format="R$ %.2f"),
                         "Saldo atual":st.column_config.NumberColumn("Saldo atual",format="R$ %.2f"),
                         "Recuperado":st.column_config.NumberColumn("Recuperado",format="R$ %.2f"),
-                    }})
+                    })
 
     premio_total_cart=sum(PREMIOS_LIDER_CARTEIRA.get(n,0) for n in niveis)
     st.markdown("---")
@@ -478,18 +478,18 @@ elif pagina=="📋  Metas":
     c1,c2=st.columns(2)
     with c1:
         st.markdown(f'<div style="font-weight:800;color:{NAVY};margin-bottom:8px">Cobradores · teto R$ 935,00</div>', unsafe_allow_html=True)
-        df_m=pd.DataFrame([{{"Faixa":m["faixa"],"Meta":m["meta"],"Prêmio (÷2)":m["premio"]/2}} for m in METAS]+
-                          [{{"Faixa":"TOTAL","Meta":None,"Prêmio (÷2)":935.0}}])
+        df_m=pd.DataFrame([{"Faixa":m["faixa"],"Meta":m["meta"],"Prêmio (÷2)":m["premio"]/2} for m in METAS]+
+                          [{"Faixa":"TOTAL","Meta":None,"Prêmio (÷2)":935.0}])
         st.dataframe(df_m,use_container_width=True,hide_index=True,
-            column_config={{"Meta":st.column_config.NumberColumn("Meta mensal",format="R$ %.0f"),
-                           "Prêmio (÷2)":st.column_config.NumberColumn("Prêmio",format="R$ %.2f")}})
+            column_config={"Meta":st.column_config.NumberColumn("Meta mensal",format="R$ %.0f"),
+                           "Prêmio (÷2)":st.column_config.NumberColumn("Prêmio",format="R$ %.2f")})
         st.caption("Prêmio liberado apenas se a equipe bater a meta da faixa (tudo ou nada)")
     with c2:
         st.markdown(f'<div style="font-weight:800;color:{NAVY};margin-bottom:8px">Líderes — Carteiras estratégicas</div>', unsafe_allow_html=True)
         st.dataframe(pd.DataFrame([
-            {{"Carteira":"KING/PISA 2025 (Top 40)","Nível 1":"5%","Nível 2":"10%","Nível 3":"15%"}},
-            {{"Carteira":"KING/PISA 2024 (Top 100)","Nível 1":"2,5%","Nível 2":"5%","Nível 3":"10%"}},
-            {{"Carteira":"Prêmio por nível","Nível 1":"R$ 100","Nível 2":"R$ 300","Nível 3":"R$ 500"}},
+            {"Carteira":"KING/PISA 2025 (Top 40)","Nível 1":"5%","Nível 2":"10%","Nível 3":"15%"},
+            {"Carteira":"KING/PISA 2024 (Top 100)","Nível 1":"2,5%","Nível 2":"5%","Nível 3":"10%"},
+            {"Carteira":"Prêmio por nível","Nível 1":"R$ 100","Nível 2":"R$ 300","Nível 3":"R$ 500"},
         ]),use_container_width=True,hide_index=True)
     st.markdown("---")
     st.markdown("""
