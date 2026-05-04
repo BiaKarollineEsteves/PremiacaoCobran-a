@@ -30,8 +30,8 @@ def gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl
     story = []
     # Header: logo texto à esquerda, info à direita
     left_cell = [
-        Paragraph("GRUPO LLE", S("tl", fontName="Helvetica-Bold", fontSize=22, textColor=navy, spaceAfter=2)),
-        Paragraph("Sistema de Premiacao — Equipe Financeiro", S("sl", fontName="Helvetica", fontSize=9, textColor=gray)),
+        Paragraph("GRUPO LLE", S("tl", fontName="Helvetica-Bold", fontSize=18, textColor=navy, spaceAfter=2)),
+        Paragraph("Relatório Gerencial — Equipe Financeiro", S("sl", fontName="Helvetica", fontSize=9, textColor=gray)),
     ]
     right_cell = [
         Paragraph("Relatorio Gerencial de Cobranca", S("tr", fontName="Helvetica", fontSize=9, textColor=gray, alignment=2, spaceAfter=2)),
