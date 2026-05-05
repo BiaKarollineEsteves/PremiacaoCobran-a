@@ -30,8 +30,8 @@ def gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl
     story = []
     # Header: logo texto à esquerda, info à direita
     left_cell = [
-        Paragraph("GRUPO LLE", S("tl", fontName="Helvetica-Bold", fontSize=15, textColor=navy, spaceAfter=2)),
-        Paragraph("Relatório Gerencial — Equipe Financeiro", S("sl", fontName="Helvetica", fontSize=9, textColor=gray)),
+        Paragraph("GRUPO LLE", S("tl", fontName="Helvetica-Bold", fontSize=22, textColor=navy, spaceAfter=2)),
+        Paragraph("Sistema de Premiacao — Equipe Financeiro", S("sl", fontName="Helvetica", fontSize=9, textColor=gray)),
     ]
     right_cell = [
         Paragraph("Relatorio Gerencial de Cobranca", S("tr", fontName="Helvetica", fontSize=9, textColor=gray, alignment=2, spaceAfter=2)),
@@ -165,7 +165,15 @@ METAS = [
     {"faixa":"Juros",                      "col":"Vlr Calculado", "meta":80000, "premio":400},
 ]
 ORDEM_FAIXAS = [m["faixa"] for m in METAS]
-COBRADORES_INATIVOS = {"PEDRO.SILVA"}
+COBRADORES_INATIVOS  = {"PEDRO.SILVA"}   # sem prêmio — adicione aqui novas inativos/terceirizadas
+TERCEIRIZADAS_NOMES  = {"know how", "rennovare"}  # palavras no histórico que identificam terceirizada
+
+def is_terceirizada(historico):
+    """Retorna True se o histórico menciona uma terceirizada SEM a palavra 'dv' (devolução)."""
+    h = str(historico or "").lower()
+    tem_terceirizada = any(t in h for t in TERCEIRIZADAS_NOMES)
+    tem_dv = bool(re.search(r'\bdv\b', h))
+    return tem_terceirizada and not tem_dv
 PREMIOS_LIDER_CARTEIRA = {1:100, 2:300, 3:500}
 
 def fmt_br(v):
@@ -239,7 +247,11 @@ if pagina=="Cobradores":
     else:
         df_boletos = df_raw
     excluidos=df_boletos[df_boletos["Histórico"].apply(has_ticket)]
-    clean=df_boletos[~df_boletos["Histórico"].apply(has_ticket)].copy()
+    df_sem_ticket=df_boletos[~df_boletos["Histórico"].apply(has_ticket)]
+    # Separar terceirizadas (know how / rennovare sem "dv")
+    mask_terc = df_sem_ticket["Histórico"].apply(is_terceirizada)
+    terceirizadas_df = df_sem_ticket[mask_terc].copy()
+    clean = df_sem_ticket[~mask_terc].copy()
     for m in METAS: clean[m["col"]]=clean[m["col"]].apply(safe_float)
 
     # ── Estado: clientes excluídos manualmente ──
@@ -248,11 +260,16 @@ if pagina=="Cobradores":
 
     cobradores_list=sorted(clean["Cobrador"].dropna().unique())
 
-    totais={}; clientes_por={}
+    totais={}; clientes_por={}; terceirizadas_por={}
     for nome in cobradores_list:
         sub=clean[clean["Cobrador"]==nome]
         totais[nome]={m["col"]:sub[m["col"]].sum() for m in METAS}
         clientes_por[nome]=sub
+        # Terceirizadas associadas a este cobrador
+        if "Cobrador" in terceirizadas_df.columns:
+            terceirizadas_por[nome]=terceirizadas_df[terceirizadas_df["Cobrador"]==nome]
+        else:
+            terceirizadas_por[nome]=pd.DataFrame()
 
     # Calcular totais excluindo os manuais
     def get_clean_filtered():
@@ -277,7 +294,14 @@ if pagina=="Cobradores":
     c1.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #041747"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Cobradores</div><div style="font-size:22px;font-weight:800;color:#041747">{len(cobradores_list)}</div></div>', unsafe_allow_html=True)
     c2.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #041747"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Registros validos</div><div style="font-size:22px;font-weight:800;color:#041747">{len(get_clean_filtered())}</div></div>', unsafe_allow_html=True)
     n_excl_total = len(excluidos) + len(st.session_state.excluidos_manual)
-    c3.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #FAC318"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Excluidos</div><div style="font-size:22px;font-weight:800;color:#b45309">{n_excl_total}</div></div>', unsafe_allow_html=True)
+    n_terc_total = len(terceirizadas_df)
+    c3.markdown(
+        f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #FAC318">' +
+        f'<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Excluidos</div>' +
+        f'<div style="font-size:22px;font-weight:800;color:#b45309">{n_excl_total}</div>' +
+        f'<div style="font-size:11px;color:#9ca3af;margin-top:2px">{n_terc_total} de terceirizadas</div></div>',
+        unsafe_allow_html=True
+    )
     c4.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #0F8C3B"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Premio por cobrador</div><div style="font-size:22px;font-weight:800;color:#0F8C3B">{fmt_br(premio_cobrador)}</div></div>', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -306,10 +330,13 @@ if pagina=="Cobradores":
             )
 
             sub_cli=clientes_por[nome]
+            sub_terc=terceirizadas_por.get(nome, pd.DataFrame())
             n_excl_cob=len(excluidos[excluidos["Cobrador"]==nome])
-            tab_prem,tab_cli,tab_excl=st.tabs([
+            n_terc_cob=len(sub_terc)
+            tab_prem,tab_cli,tab_terc,tab_excl=st.tabs([
                 "Premiacao por faixa",
                 f"Clientes ({len(sub_cli)})",
+                f"Terceirizadas ({n_terc_cob})",
                 f"Excluidos ({n_excl_cob})",
             ])
 
@@ -433,6 +460,27 @@ if pagina=="Cobradores":
                     st.caption(f"{len(df_show)} parceiros · Total: {fmt_br(df_show['Total recuperado'].sum())}")
 
             # ── Tab excluídos ──
+            with tab_terc:
+                if sub_terc.empty:
+                    st.info("Nenhum registro de terceirizada para este cobrador.")
+                else:
+                    total_terc = sub_terc["Vlr.Desdob."].apply(safe_float).sum() if "Vlr.Desdob." in sub_terc.columns else 0
+                    st.markdown(
+                        f'<div style="background:#fff7ed;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:12px;font-weight:500">' +
+                        f'Recuperado por terceirizada (Know How / Rennovare) — nao contabilizado na premiacao. Total: <b>{fmt_br(total_terc)}</b></div>',
+                        unsafe_allow_html=True
+                    )
+                    cols_show = [c for c in ["Cod.Parceiro","Parceiro","Vlr.Desdob.","Histórico","Vencimento","Baixa"] if c in sub_terc.columns]
+                    df_ts = sub_terc[cols_show].copy()
+                    rename_map = {"Cod.Parceiro":"Codigo","Parceiro":"Cliente","Vlr.Desdob.":"Valor","Histórico":"Historico","Vencimento":"Vencimento","Baixa":"Baixa"}
+                    df_ts.columns = [rename_map.get(c,c) for c in cols_show]
+                    if "Valor" in df_ts.columns:
+                        df_ts["Valor"] = df_ts["Valor"].apply(safe_float)
+                        df_ts = df_ts.sort_values("Valor", ascending=False)
+                    st.dataframe(df_ts, use_container_width=True, hide_index=True,
+                        column_config={"Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")} if "Valor" in df_ts.columns else {})
+                    st.caption(f"{len(sub_terc)} registros · Total: {fmt_br(total_terc)}")
+
             with tab_excl:
                 excl_cob=excluidos[excluidos["Cobrador"]==nome].copy()
                 if excl_cob.empty: st.info("Nenhum registro excluído.")
@@ -482,91 +530,200 @@ if pagina=="Cobradores":
         )
 
 elif pagina=="Líderes":
-    st.markdown("<div class='page-title'>Carteiras Estratégicas — PISA & KING</div>", unsafe_allow_html=True)
-    st.markdown("<div class='page-sub'>Compare as planilhas do início do mês com as de hoje</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color:{NAVY};font-size:22px;font-weight:800;margin:1.5rem 0 2px'>Carteiras Estratégicas — PISA & KING</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color:#6b7280;font-size:13px;margin-bottom:1.5rem'>Compare as planilhas do inicio do mes com as de hoje para calcular o percentual recuperado.</div>", unsafe_allow_html=True)
 
-    pares_config=[
-        ("KING 2025 (Top 40)","king25",[5,10,15]),
-        ("PISA 2025 (Top 40)","pisa25",[5,10,15]),
-        ("PISA 2024 (Top 100)","pisa24",[2.5,5,10]),
-        ("KING 2024 (Top 100)","king24",[2.5,5,10]),
+    pares_config = [
+        ("KING 2025 (Top 40)",  "king25", [5,   10,  15]),
+        ("PISA 2025 (Top 40)",  "pisa25", [5,   10,  15]),
+        ("PISA 2024 (Top 100)", "pisa24", [2.5, 5,   10]),
+        ("KING 2024 (Top 100)", "king24", [2.5, 5,   10]),
     ]
 
-    col_a,col_b=st.columns(2)
-    uploads={}
+    col_a, col_b = st.columns(2)
+    uploads = {}
     with col_a:
-        st.markdown(f'<div style="font-weight:700;color:{NAVY};margin-bottom:8px">Mes anterior (referencia)</div>', unsafe_allow_html=True)
-        for nome,key,_ in pares_config:
-            uploads[f"{key}_ant"]=st.file_uploader(nome,type=["xlsx","xls"],key=f"{key}_ant")
+        st.markdown(f"<div style='font-weight:700;color:{NAVY};margin-bottom:8px'>Mes anterior (referencia)</div>", unsafe_allow_html=True)
+        for nome, key, _ in pares_config:
+            uploads[f"{key}_ant"] = st.file_uploader(nome, type=["xlsx","xls"], key=f"{key}_ant")
     with col_b:
-        st.markdown(f'<div style="font-weight:700;color:{NAVY};margin-bottom:8px">Mes atual (hoje)</div>', unsafe_allow_html=True)
-        for nome,key,_ in pares_config:
-            uploads[f"{key}_hj"]=st.file_uploader(nome,type=["xlsx","xls"],key=f"{key}_hj")
+        st.markdown(f"<div style='font-weight:700;color:{NAVY};margin-bottom:8px'>Mes atual (hoje)</div>", unsafe_allow_html=True)
+        for nome, key, _ in pares_config:
+            uploads[f"{key}_hj"] = st.file_uploader(nome, type=["xlsx","xls"], key=f"{key}_hj")
 
-    prontos=sum(1 for n,k,_ in pares_config if uploads[f"{k}_ant"] and uploads[f"{k}_hj"])
-    if prontos<4:
-        st.progress(prontos/4,text=f"{prontos}/4 carteiras prontas")
+    prontos = sum(1 for _, k, _ in pares_config if uploads[f"{k}_ant"] and uploads[f"{k}_hj"])
+    if prontos < 4:
+        st.progress(prontos / 4, text=f"{prontos}/4 carteiras prontas")
         st.stop()
 
     st.markdown("---")
-    niveis=[]
-    for nome,key,metas_pct in pares_config:
+
+    # Session state para exclusões por carteira
+    if "excluidos_carteira" not in st.session_state:
+        st.session_state.excluidos_carteira = {}
+
+    niveis = []
+    for nome, key, metas_pct in pares_config:
         try:
-            df_ant=load_carteira(uploads[f"{key}_ant"])
-            df_hj=load_carteira(uploads[f"{key}_hj"])
+            df_ant = load_carteira(uploads[f"{key}_ant"])
+            df_hj  = load_carteira(uploads[f"{key}_hj"])
         except Exception as e:
-            st.error(f"Erro em {nome}: {e}"); continue
+            st.error(f"Erro em {nome}: {e}")
+            continue
 
-        total_ant=df_ant["Em Atraso"].sum()
-        df_merge=df_ant.merge(df_hj[["cod_matriz","Em Atraso"]].rename(columns={"Em Atraso":"Atual"}),on="cod_matriz",how="left")
-        df_merge["Atual"]=df_merge["Atual"].fillna(0)
-        df_merge["Recuperado"]=(df_merge["Em Atraso"]-df_merge["Atual"]).clip(lower=0)
-        total_rec=df_merge["Recuperado"].sum()
-        pct_rec=round(total_rec/total_ant*100,2) if total_ant>0 else 0
+        # Inicializar exclusões para esta carteira
+        if key not in st.session_state.excluidos_carteira:
+            st.session_state.excluidos_carteira[key] = set()
 
-        nivel=3 if pct_rec>=metas_pct[2] else 2 if pct_rec>=metas_pct[1] else 1 if pct_rec>=metas_pct[0] else 0
+        total_ant = df_ant["Em Atraso"].sum()
+        df_merge = df_ant.merge(
+            df_hj[["cod_matriz","Em Atraso"]].rename(columns={"Em Atraso":"Atual"}),
+            on="cod_matriz", how="left"
+        )
+        df_merge["Atual"]      = df_merge["Atual"].fillna(0)
+        df_merge["Recuperado"] = (df_merge["Em Atraso"] - df_merge["Atual"]).clip(lower=0)
+
+        # Aplicar exclusões manuais
+        excl = st.session_state.excluidos_carteira[key]
+        df_valido = df_merge[~df_merge["cod_matriz"].isin(excl)]
+        total_rec = df_valido["Recuperado"].sum()
+        pct_rec   = round(total_rec / total_ant * 100, 2) if total_ant > 0 else 0
+
+        m1, m2, m3 = metas_pct
+        nivel  = 3 if pct_rec >= m3 else 2 if pct_rec >= m2 else 1 if pct_rec >= m1 else 0
         niveis.append(nivel)
-        premio=PREMIOS_LIDER_CARTEIRA.get(nivel,0)
-        cor={0:"#9ca3af",1:"#b45309",2:BLUE,3:GREEN}[nivel]
-        badge={0:"Sem nivel",1:"Nivel 1",2:"Nivel 2",3:"Nivel 3"}[nivel]
+        premio = PREMIOS_LIDER_CARTEIRA.get(nivel, 0)
+        cor    = {0:"#9ca3af", 1:"#b45309", 2:BLUE, 3:GREEN}[nivel]
+        badge  = {0:"Sem nivel", 1:"Nivel 1", 2:"Nivel 2", 3:"Nivel 3"}[nivel]
 
-        with st.expander(f"{nome} - {badge} - {fmt_br(premio)}", expanded=True):
-            c1,c2,c3,c4=st.columns(4)
-            c1.metric("Carteira referência",fmt_br(total_ant))
-            c2.metric("Carteira atual",fmt_br(df_hj["Em Atraso"].sum()))
-            c3.metric("Recuperado",fmt_br(total_rec))
-            c4.metric("% recuperado",f"{pct_rec:.2f}%")
-            m1,m2,m3=metas_pct
-            p1=min(pct_rec/m3*100,100)
-            st.markdown(f'''<div style="margin:10px 0 4px;font-size:11px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Progresso por nível</div>
+        with st.expander(f"{nome} — {badge} — {fmt_br(premio)}", expanded=True):
+            # KPIs formatados
+            c1, c2, c3, c4 = st.columns(4)
+            for col, label, val, color in [
+                (c1, "Carteira referencia",  fmt_br(total_ant),                      NAVY),
+                (c2, "Carteira atual",       fmt_br(df_hj["Em Atraso"].sum()),        NAVY),
+                (c3, "Recuperado",           fmt_br(total_rec),                       GREEN),
+                (c4, "% recuperado",         f"{pct_rec:.2f}%",                       GREEN if nivel > 0 else "#9ca3af"),
+            ]:
+                col.markdown(
+                    f'<div style="background:white;border-radius:10px;padding:.75rem 1rem;border:1px solid #e8eaf0;border-top:3px solid {color}">' +
+                    f'<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">{label}</div>' +
+                    f'<div style="font-size:20px;font-weight:800;color:{color}">{val}</div></div>',
+                    unsafe_allow_html=True
+                )
+
+            # Barra de progresso por nível
+            p_bar = min(pct_rec / m3 * 100, 100) if m3 > 0 else 0
+            st.markdown(f"""
+            <div style="margin:14px 0 4px;font-size:11px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Progresso por nivel</div>
             <div style="position:relative;height:18px;background:#e2e8f0;border-radius:9px;overflow:hidden">
-              <div style="height:100%;width:{p1:.1f}%;background:{cor};border-radius:9px;transition:width .5s"></div>
+              <div style="height:100%;width:{p_bar:.1f}%;background:{cor};border-radius:9px"></div>
               <div style="position:absolute;left:{m1/m3*100:.1f}%;top:0;height:100%;width:2px;background:white;opacity:.8"></div>
               <div style="position:absolute;left:{m2/m3*100:.1f}%;top:0;height:100%;width:2px;background:white;opacity:.8"></div>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:10px;color:#9ca3af;font-weight:700;margin-top:4px">
-              <span>0%</span><span>🥉 {m1}%</span><span>🥈 {m2}%</span><span>🥇 {m3}%</span>
-            </div>''', unsafe_allow_html=True)
-            df_det=df_merge[df_merge["Recuperado"]>0].sort_values("Recuperado",ascending=False)
-            if not df_det.empty:
-                st.markdown(f'<div style="font-size:12px;font-weight:700;color:{NAVY};margin-top:12px">Clientes com recuperação</div>', unsafe_allow_html=True)
-                df_s=df_det[["nome_matriz","Em Atraso","Atual","Recuperado"]].copy()
-                df_s.columns=["Cliente","Saldo anterior","Saldo atual","Recuperado"]
-                st.dataframe(df_s,use_container_width=True,hide_index=True,
+              <span>0%</span><span>Nivel 1 — {m1}%</span><span>Nivel 2 — {m2}%</span><span>Nivel 3 — {m3}%</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Tabela de clientes com checkbox para exclusão
+            # Clientes com recuperação identificada
+            df_det = df_merge[df_merge["Recuperado"] > 0].sort_values("Recuperado", ascending=False).copy()
+
+            # Clientes que sumiram da lista (nao aparecem no mes atual) = nao identificados
+            df_nao_id = df_merge[~df_merge["cod_matriz"].isin(df_hj["cod_matriz"])].copy()
+            df_nao_id = df_nao_id[df_nao_id["Em Atraso"] > 0]
+
+            if not df_nao_id.empty:
+                st.markdown(
+                    f'<div style="background:#fef3c7;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:10px 14px;font-size:13px;color:#92400e;margin:12px 0;font-weight:500">' +
+                    f'⚠️ {len(df_nao_id)} cliente(s) nao identificado(s) no mes atual (saiu da lista). Verifique no sistema e informe o valor real recuperado abaixo.</div>',
+                    unsafe_allow_html=True
+                )
+                # Inicializar valores manuais para esta carteira
+                manual_key = f"manual_vals_{key}"
+                if manual_key not in st.session_state:
+                    st.session_state[manual_key] = {}
+
+                df_nao_show = df_nao_id[["cod_matriz","nome_matriz","Em Atraso"]].copy()
+                df_nao_show.columns = ["Codigo","Cliente","Saldo anterior"]
+                df_nao_show["Valor real recuperado"] = df_nao_show["Codigo"].apply(
+                    lambda c: st.session_state[manual_key].get(c, 0.0)
+                )
+                edited_manual = st.data_editor(
+                    df_nao_show, use_container_width=True, hide_index=True,
+                    key=f"manual_{key}",
                     column_config={
-                        "Saldo anterior":st.column_config.NumberColumn("Saldo anterior",format="R$ %.2f"),
-                        "Saldo atual":st.column_config.NumberColumn("Saldo atual",format="R$ %.2f"),
-                        "Recuperado":st.column_config.NumberColumn("Recuperado",format="R$ %.2f"),
-                    })
+                        "Codigo":   st.column_config.TextColumn("Codigo"),
+                        "Cliente":  st.column_config.TextColumn("Cliente"),
+                        "Saldo anterior": st.column_config.NumberColumn("Saldo anterior", format="R$ %.2f"),
+                        "Valor real recuperado": st.column_config.NumberColumn(
+                            "Valor real recuperado", format="R$ %.2f",
+                            help="Digite o valor que o cliente efetivamente pagou (consultado no sistema)"
+                        ),
+                    },
+                    disabled=["Codigo","Cliente","Saldo anterior"],
+                )
+                # Salvar valores manuais
+                for _, row in edited_manual.iterrows():
+                    st.session_state[manual_key][row["Codigo"]] = row["Valor real recuperado"]
+                total_manual = sum(st.session_state[manual_key].values())
+                if total_manual > 0:
+                    st.success(f"Valor manual informado: {fmt_br(total_manual)} — incluido no calculo do percentual recuperado.")
+                    # Recalcular pct com valores manuais
+                    total_rec_ajustado = total_rec + total_manual
+                    pct_rec_ajustado = round(total_rec_ajustado / total_ant * 100, 2) if total_ant > 0 else 0
+                    nivel_aj = 3 if pct_rec_ajustado >= m3 else 2 if pct_rec_ajustado >= m2 else 1 if pct_rec_ajustado >= m1 else 0
+                    if nivel_aj != nivel:
+                        st.info(f"Com os valores manuais: {pct_rec_ajustado:.2f}% recuperado → {['Sem nivel','Nivel 1','Nivel 2','Nivel 3'][nivel_aj]}")
 
-    premio_total_cart=sum(PREMIOS_LIDER_CARTEIRA.get(n,0) for n in niveis)
+            if not df_det.empty:
+                st.markdown(f"<div style='font-size:13px;font-weight:700;color:{NAVY};margin-top:14px;margin-bottom:6px'>Clientes com recuperacao identificada</div>", unsafe_allow_html=True)
+
+                df_edit = df_det[["cod_matriz","nome_matriz","Em Atraso","Atual","Recuperado"]].copy()
+                df_edit.columns = ["Codigo","Cliente","Saldo anterior","Saldo atual","Recuperado"]
+                df_edit.insert(0, "Contabilizar", df_edit["Codigo"].apply(lambda c: c not in excl))
+
+                edited = st.data_editor(
+                    df_edit, use_container_width=True, hide_index=True, key=f"edit_{key}",
+                    column_config={
+                        "Contabilizar":   st.column_config.CheckboxColumn("Contabilizar", help="Desmarque para retirar da contagem"),
+                        "Codigo":         st.column_config.TextColumn("Codigo"),
+                        "Cliente":        st.column_config.TextColumn("Cliente"),
+                        "Saldo anterior": st.column_config.NumberColumn("Saldo anterior", format="R$ %.2f"),
+                        "Saldo atual":    st.column_config.NumberColumn("Saldo atual",    format="R$ %.2f"),
+                        "Recuperado":     st.column_config.NumberColumn("Recuperado",     format="R$ %.2f"),
+                    },
+                    disabled=["Codigo","Cliente","Saldo anterior","Saldo atual","Recuperado"],
+                )
+                desmarcados = set(edited[~edited["Contabilizar"]]["Codigo"].tolist())
+                marcados    = set(edited[edited["Contabilizar"]]["Codigo"].tolist())
+                st.session_state.excluidos_carteira[key] = (excl | desmarcados) - marcados
+
+                if st.session_state.excluidos_carteira[key]:
+                    n_excl_cart = len(st.session_state.excluidos_carteira[key])
+                    st.warning(f"{n_excl_cart} cliente(s) excluido(s). Clique em recalcular para atualizar o nivel.")
+                    if st.button("Recalcular", key=f"recalc_cart_{key}"):
+                        st.rerun()
+
+                total_contabilizado = df_det[~df_det["cod_matriz"].isin(st.session_state.excluidos_carteira[key])]["Recuperado"].sum()
+                st.caption(f"{len(df_det)} clientes identificados · {len(st.session_state.excluidos_carteira[key])} excluidos · Contabilizado: {fmt_br(total_contabilizado)}")
+
+            # Clientes que saíram da lista (novos na ref mas não no atual)
+            cods_novos = set(df_hj["cod_matriz"]) - set(df_ant["cod_matriz"])
+            if cods_novos:
+                st.caption(f"Novos na lista atual (nao estavam na referencia): {len(cods_novos)}")
+
+    # Total prêmio carteiras
+    premio_total_cart = sum(PREMIOS_LIDER_CARTEIRA.get(n, 0) for n in niveis)
     st.markdown("---")
-    st.markdown(f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid #0F8C3B;max-width:280px"><div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Premio total carteiras (por lider)</div><div style="font-size:22px;font-weight:800;color:#0F8C3B">{fmt_br(premio_total_cart)}</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid {GREEN};max-width:280px">' +
+        f'<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Premio total carteiras (por lider)</div>' +
+        f'<div style="font-size:22px;font-weight:800;color:{GREEN}">{fmt_br(premio_total_cart)}</div></div>',
+        unsafe_allow_html=True
+    )
 
-
-# ══════════════════════════════════════════════════════════════════════════
-# PÁGINA 3 — METAS
-# ══════════════════════════════════════════════════════════════════════════
 elif pagina=="Metas":
     st.markdown("<div class='page-title'>Tabela de Metas</div>", unsafe_allow_html=True)
     c1,c2=st.columns(2)
