@@ -221,7 +221,17 @@ def load_carteira(file):
     return df
 
 # ── Navegação ────────────────────────────────────────────────────────────
-pagina=st.sidebar.radio("Navegação",["Cobradores","Líderes","Metas"],index=0,label_visibility="collapsed")
+# ── Inicializar session_state global ────────────────────────────────────────
+if "df_cobradores_cache"    not in st.session_state: st.session_state.df_cobradores_cache    = None
+if "df_cobradores_nome"     not in st.session_state: st.session_state.df_cobradores_nome     = None
+if "excluidos_manual"       not in st.session_state: st.session_state.excluidos_manual       = set()
+if "excluidos_permanentes"  not in st.session_state: st.session_state.excluidos_permanentes  = set()  # por código de parceiro
+if "terceirizadas_incluir"  not in st.session_state: st.session_state.terceirizadas_incluir  = set()  # terceirizadas marcadas para incluir
+if "excluidos_carteira"     not in st.session_state: st.session_state.excluidos_carteira     = {}
+if "carteiras_cache"        not in st.session_state: st.session_state.carteiras_cache        = {}
+if "carteiras_nomes"        not in st.session_state: st.session_state.carteiras_nomes        = {}
+
+pagina=st.sidebar.radio("Navegação",["Cobradores","Líderes","Exclusoes Permanentes","Metas"],index=0,label_visibility="collapsed")
 st.sidebar.markdown("---")
 st.sidebar.caption("Grupo LLE · Premiação Financeiro")
 
@@ -233,12 +243,26 @@ if pagina=="Cobradores":
     st.markdown("<div class='page-sub'>Apuração mensal · metas por equipe · prêmio tudo ou nada por faixa</div>", unsafe_allow_html=True)
 
     uploaded=st.file_uploader("Importar relatório mensal (.xls / .xlsx)", type=["xls","xlsx"])
-    if not uploaded:
-        st.markdown('<div class="info-strip">Faça o upload do relatório mensal exportado do sistema para calcular a premiação automaticamente.</div>', unsafe_allow_html=True)
+
+    # Salvar no cache quando novo arquivo for carregado
+    if uploaded is not None and st.session_state.df_cobradores_nome != uploaded.name:
+        try:
+            st.session_state.df_cobradores_cache = load_relatorio(uploaded)
+            st.session_state.df_cobradores_nome  = uploaded.name
+        except Exception as e:
+            st.error(f"Erro ao ler arquivo: {e}"); st.stop()
+
+    if st.session_state.df_cobradores_cache is None:
+        st.markdown(
+            '<div style="background:#f0f6ff;border-left:3px solid ' + BLUE + ';border-radius:0 8px 8px 0;padding:10px 14px;font-size:13px;color:#1e40af;margin:1rem 0;font-weight:500">' +
+            'Importe o relatorio mensal para calcular a premiacao.</div>',
+            unsafe_allow_html=True
+        )
         st.stop()
 
-    try: df_raw=load_relatorio(uploaded)
-    except Exception as e: st.error(f"Erro ao ler arquivo: {e}"); st.stop()
+    df_raw = st.session_state.df_cobradores_cache
+    if st.session_state.df_cobradores_nome:
+        st.caption(f"Arquivo em uso: {st.session_state.df_cobradores_nome}")
 
     # Só boletos (excluir depósito bancário, PIX, dinheiro etc.)
     TIPOS_VALIDOS = ["BOLETO", "BOLETO RETORNO", "BOLETO RETORNO/TITULO VENCIDO", "BOLETO REGISTRADO"]
@@ -252,19 +276,31 @@ if pagina=="Cobradores":
     mask_terc = df_sem_ticket["Histórico"].apply(is_terceirizada)
     terceirizadas_df = df_sem_ticket[mask_terc].copy()
     clean = df_sem_ticket[~mask_terc].copy()
+    # Aplicar exclusões permanentes (por código do parceiro)
+    if st.session_state.excluidos_permanentes and "Cod.Parceiro" in clean.columns:
+        clean = clean[~clean["Cod.Parceiro"].astype(str).isin(st.session_state.excluidos_permanentes)]
     for m in METAS: clean[m["col"]]=clean[m["col"]].apply(safe_float)
-
-    # ── Estado: clientes excluídos manualmente ──
-    if "excluidos_manual" not in st.session_state:
-        st.session_state.excluidos_manual=set()
 
     cobradores_list=sorted(clean["Cobrador"].dropna().unique())
 
+    # Terceirizadas marcadas para incluir na premiação (exceções)
+    terc_incluidas = terceirizadas_df[
+        terceirizadas_df["Cod.Parceiro"].astype(str).isin(st.session_state.terceirizadas_incluir)
+    ] if "Cod.Parceiro" in terceirizadas_df.columns else pd.DataFrame()
+
+    # Mover terceirizadas incluídas de volta ao clean para fins de cálculo
+    import pandas as pd
+    if not terc_incluidas.empty:
+        for m in METAS: terc_incluidas[m["col"]] = terc_incluidas[m["col"]].apply(safe_float) if m["col"] in terc_incluidas.columns else 0.0
+        clean_calc = pd.concat([clean, terc_incluidas], ignore_index=True)
+    else:
+        clean_calc = clean
+
     totais={}; clientes_por={}; terceirizadas_por={}
     for nome in cobradores_list:
-        sub=clean[clean["Cobrador"]==nome]
+        sub=clean_calc[clean_calc["Cobrador"]==nome]
         totais[nome]={m["col"]:sub[m["col"]].sum() for m in METAS}
-        clientes_por[nome]=sub
+        clientes_por[nome]=clean[clean["Cobrador"]==nome]  # mostra só os não-terc na aba clientes
         # Terceirizadas associadas a este cobrador
         if "Cobrador" in terceirizadas_df.columns:
             terceirizadas_por[nome]=terceirizadas_df[terceirizadas_df["Cobrador"]==nome]
@@ -273,8 +309,10 @@ if pagina=="Cobradores":
 
     # Calcular totais excluindo os manuais
     def get_clean_filtered():
-        if not st.session_state.excluidos_manual: return clean
-        return clean[~clean["Parceiro"].isin(st.session_state.excluidos_manual)]
+        base = clean_calc
+        if st.session_state.excluidos_manual:
+            base = base[~base["Parceiro"].isin(st.session_state.excluidos_manual)]
+        return base
 
     def recalc_totais():
         cf=get_clean_filtered()
@@ -466,8 +504,8 @@ if pagina=="Cobradores":
                 else:
                     total_terc = sub_terc["Vlr.Desdob."].apply(safe_float).sum() if "Vlr.Desdob." in sub_terc.columns else 0
                     st.markdown(
-                        f'<div style="background:#fff7ed;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:12px;font-weight:500">' +
-                        f'Recuperado por terceirizada (Know How / Rennovare) — nao contabilizado na premiacao. Total: <b>{fmt_br(total_terc)}</b></div>',
+                        '<div style="background:#fff7ed;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:12px;font-weight:500">' +
+                        f'Recuperado por terceirizada — por padrao nao entra na premiacao.<br>Marque <b>Incluir na premiacao</b> para casos de excecao. Total: <b>{fmt_br(total_terc)}</b></div>',
                         unsafe_allow_html=True
                     )
                     cols_show = [c for c in ["Cod.Parceiro","Parceiro","Vlr.Desdob.","Histórico","Vencimento","Baixa"] if c in sub_terc.columns]
@@ -477,9 +515,32 @@ if pagina=="Cobradores":
                     if "Valor" in df_ts.columns:
                         df_ts["Valor"] = df_ts["Valor"].apply(safe_float)
                         df_ts = df_ts.sort_values("Valor", ascending=False)
-                    st.dataframe(df_ts, use_container_width=True, hide_index=True,
-                        column_config={"Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")} if "Valor" in df_ts.columns else {})
-                    st.caption(f"{len(sub_terc)} registros · Total: {fmt_br(total_terc)}")
+                    # Checkbox: incluir na premiação (exceção)
+                    cod_col = "Codigo" if "Codigo" in df_ts.columns else None
+                    if cod_col:
+                        df_ts.insert(0, "Incluir na premiacao",
+                            df_ts[cod_col].astype(str).isin(st.session_state.terceirizadas_incluir))
+                    edited_terc = st.data_editor(
+                        df_ts, use_container_width=True, hide_index=True,
+                        key=f"terc_{nome}",
+                        column_config={
+                            "Incluir na premiacao": st.column_config.CheckboxColumn(
+                                "Incluir na premiacao",
+                                help="Marque para contabilizar este cliente na premiacao (excecao)"
+                            ),
+                            "Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f"),
+                        },
+                        disabled=[c for c in df_ts.columns if c != "Incluir na premiacao"],
+                    )
+                    if cod_col:
+                        marcados_terc   = set(edited_terc[edited_terc["Incluir na premiacao"]][cod_col].astype(str).tolist())
+                        desmarcados_terc= set(edited_terc[~edited_terc["Incluir na premiacao"]][cod_col].astype(str).tolist())
+                        st.session_state.terceirizadas_incluir = (st.session_state.terceirizadas_incluir | marcados_terc) - desmarcados_terc
+                        if marcados_terc:
+                            st.success(f"{len(marcados_terc)} cliente(s) de terceirizada incluido(s) na premiacao como excecao.")
+                            if st.button("Recalcular com excecoes", key=f"recalc_terc_{nome}"):
+                                st.rerun()
+                    st.caption(f"{len(sub_terc)} registros · Total terceirizada: {fmt_br(total_terc)}")
 
             with tab_excl:
                 excl_cob=excluidos[excluidos["Cobrador"]==nome].copy()
@@ -545,15 +606,26 @@ elif pagina=="Líderes":
     with col_a:
         st.markdown(f"<div style='font-weight:700;color:{NAVY};margin-bottom:8px'>Mes anterior (referencia)</div>", unsafe_allow_html=True)
         for nome, key, _ in pares_config:
-            uploads[f"{key}_ant"] = st.file_uploader(nome, type=["xlsx","xls"], key=f"{key}_ant")
+            f = st.file_uploader(nome, type=["xlsx","xls"], key=f"{key}_ant")
+            if f is not None and st.session_state.carteiras_nomes.get(f"{key}_ant") != f.name:
+                st.session_state.carteiras_cache[f"{key}_ant"]  = load_carteira(f)
+                st.session_state.carteiras_nomes[f"{key}_ant"]  = f.name
+            uploads[f"{key}_ant"] = st.session_state.carteiras_cache.get(f"{key}_ant")
     with col_b:
         st.markdown(f"<div style='font-weight:700;color:{NAVY};margin-bottom:8px'>Mes atual (hoje)</div>", unsafe_allow_html=True)
         for nome, key, _ in pares_config:
-            uploads[f"{key}_hj"] = st.file_uploader(nome, type=["xlsx","xls"], key=f"{key}_hj")
+            f = st.file_uploader(nome, type=["xlsx","xls"], key=f"{key}_hj")
+            if f is not None and st.session_state.carteiras_nomes.get(f"{key}_hj") != f.name:
+                st.session_state.carteiras_cache[f"{key}_hj"]  = load_carteira(f)
+                st.session_state.carteiras_nomes[f"{key}_hj"]  = f.name
+            uploads[f"{key}_hj"] = st.session_state.carteiras_cache.get(f"{key}_hj")
 
-    prontos = sum(1 for _, k, _ in pares_config if uploads[f"{k}_ant"] and uploads[f"{k}_hj"])
+    prontos = sum(1 for _, k, _ in pares_config if uploads.get(f"{k}_ant") is not None and uploads.get(f"{k}_hj") is not None)
     if prontos < 4:
         st.progress(prontos / 4, text=f"{prontos}/4 carteiras prontas")
+        if prontos > 0:
+            nomes_ok = [n for n,k,_ in pares_config if uploads.get(f"{k}_ant") is not None and uploads.get(f"{k}_hj") is not None]
+            st.caption(f"Prontas: {', '.join(nomes_ok)}")
         st.stop()
 
     st.markdown("---")
@@ -565,8 +637,9 @@ elif pagina=="Líderes":
     niveis = []
     for nome, key, metas_pct in pares_config:
         try:
-            df_ant = load_carteira(uploads[f"{key}_ant"])
-            df_hj  = load_carteira(uploads[f"{key}_hj"])
+            df_ant = uploads[f"{key}_ant"]
+            df_hj  = uploads[f"{key}_hj"]
+            if df_ant is None or df_hj is None: continue
         except Exception as e:
             st.error(f"Erro em {nome}: {e}")
             continue
@@ -723,6 +796,59 @@ elif pagina=="Líderes":
         f'<div style="font-size:22px;font-weight:800;color:{GREEN}">{fmt_br(premio_total_cart)}</div></div>',
         unsafe_allow_html=True
     )
+
+elif pagina=="Exclusoes Permanentes":
+    st.markdown(f"<div style='color:{NAVY};font-size:22px;font-weight:800;margin:1.5rem 0 2px'>Exclusoes Permanentes</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color:#6b7280;font-size:13px;margin-bottom:1.5rem'>Clientes bloqueados permanentemente — nunca entram no calculo da premiacao, independente do mes.</div>", unsafe_allow_html=True)
+
+    # Adicionar por código
+    st.markdown(f"<div style='font-weight:700;color:{NAVY};margin-bottom:8px'>Adicionar cliente</div>", unsafe_allow_html=True)
+    col_cod, col_btn = st.columns([3,1])
+    with col_cod:
+        novo_cod = st.text_input("Codigo do parceiro", key="novo_excl_cod", placeholder="Ex: 12345")
+    with col_btn:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Adicionar"):
+            if novo_cod.strip():
+                st.session_state.excluidos_permanentes.add(novo_cod.strip())
+                st.success(f"Codigo {novo_cod.strip()} adicionado.")
+
+    # Adicionar em lote (colar lista)
+    with st.expander("Adicionar varios codigos de uma vez"):
+        lote = st.text_area("Cole os codigos separados por virgula, ponto-e-virgula ou nova linha", key="lote_excl")
+        if st.button("Adicionar lote"):
+            import re as _re
+            codigos = [c.strip() for c in re.split("[,;\n]", lote) if c.strip()]
+            st.session_state.excluidos_permanentes.update(codigos)
+            st.success(f"{len(codigos)} codigos adicionados.")
+
+    st.markdown("---")
+
+    # Listar e remover
+    if not st.session_state.excluidos_permanentes:
+        st.info("Nenhum cliente bloqueado permanentemente.")
+    else:
+        st.markdown(f"<div style='font-weight:700;color:{NAVY};margin-bottom:8px'>{len(st.session_state.excluidos_permanentes)} cliente(s) bloqueado(s)</div>", unsafe_allow_html=True)
+        df_perm = pd.DataFrame([{"Codigo": c} for c in sorted(st.session_state.excluidos_permanentes)])
+        df_perm.insert(0, "Remover", False)
+        edited_perm = st.data_editor(
+            df_perm, use_container_width=True, hide_index=True,
+            key="excl_perm_table",
+            column_config={
+                "Remover": st.column_config.CheckboxColumn("Remover", help="Marque para remover o bloqueio"),
+                "Codigo": st.column_config.TextColumn("Codigo do parceiro"),
+            },
+            disabled=["Codigo"],
+        )
+        remover = set(edited_perm[edited_perm["Remover"]]["Codigo"].tolist())
+        if remover:
+            if st.button(f"Remover {len(remover)} selecionado(s)"):
+                st.session_state.excluidos_permanentes -= remover
+                st.rerun()
+
+        if st.button("Limpar todos os bloqueios"):
+            st.session_state.excluidos_permanentes = set()
+            st.rerun()
 
 elif pagina=="Metas":
     st.markdown("<div class='page-title'>Tabela de Metas</div>", unsafe_allow_html=True)
