@@ -3,7 +3,7 @@ import pandas as pd
 import re
 from collections import defaultdict
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 st.set_page_config(page_title="Premiação — Grupo LLE", page_icon=":trophy:", layout="wide")
 
@@ -110,7 +110,7 @@ def gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl
         else: ts2.add("TEXTCOLOR",(-1,i),(-1,i),green); ts2.add("FONTNAME",(-1,i),(-1,i),"Helvetica-Bold")
     t2.setStyle(ts2); story.append(t2); story.append(Spacer(1,12))
     story.append(HRFlowable(width="100%",thickness=1,color=mid,spaceAfter=6))
-    story.append(Paragraph(f"Gerado em {(datetime.utcnow() + __import__('datetime').timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')} (GMT-3) · Grupo LLE · Uso interno", small_s))
+    story.append(Paragraph(f"Gerado em {__import__("datetime").datetime.utcnow().replace(tzinfo=__import__("datetime").timezone.utc).astimezone(__import__("datetime").timezone(__import__("datetime").timedelta(hours=-3))).strftime("%d/%m/%Y %H:%M")} (GMT-3) · Grupo LLE · Uso interno", small_s))
     doc.build(story); buf.seek(0); return buf
 
 
@@ -315,7 +315,7 @@ def gerar_pdf_lideres(dados_carteiras, premio_total, mes_ref):
     # ── Rodapé ──
     story.append(HRFlowable(width="100%", thickness=1, color=mid, spaceAfter=6))
     story.append(Paragraph(
-        f"Gerado em {(datetime.utcnow() + __import__('datetime').timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')} (GMT-3) · Grupo LLE · Uso interno",
+        f"Gerado em {__import__("datetime").datetime.utcnow().replace(tzinfo=__import__("datetime").timezone.utc).astimezone(__import__("datetime").timezone(__import__("datetime").timedelta(hours=-3))).strftime("%d/%m/%Y %H:%M")} (GMT-3) · Grupo LLE · Uso interno",
         S("ft", fontName="Helvetica", fontSize=7, textColor=gray)
     ))
     doc.build(story)
@@ -793,7 +793,7 @@ if pagina=="Cobradores":
     # ── Exportar PDF ──
     st.markdown("---")
     st.markdown(f"<div style='color:{NAVY};font-size:16px;font-weight:800;margin:.5rem 0'>Exportar relatório gerencial</div>", unsafe_allow_html=True)
-    mes_input = st.text_input("Mes de referencia", value=(datetime.utcnow()+timedelta(hours=3)).strftime("%B %Y").title(), key="mes_ref")
+    mes_input = st.text_input("Mes de referencia", value=__import__("datetime").datetime.utcnow().replace(tzinfo=__import__("datetime").timezone.utc).astimezone(__import__("datetime").timezone(__import__("datetime").timedelta(hours=-3))).strftime("%B %Y").title(), key="mes_ref")
     if st.button("Gerar PDF"):
         with st.spinner("Gerando PDF..."):
             n_excl_pdf = len(excluidos) + len(st.session_state.excluidos_manual)
@@ -1063,7 +1063,7 @@ elif pagina=="Líderes":
         )
     with col_pdf:
         st.markdown("<br>", unsafe_allow_html=True)
-        mes_lid = st.text_input("Mes de referencia", value=(datetime.utcnow()+timedelta(hours=3)).strftime("%B %Y").title(), key="mes_lid")
+        mes_lid = st.text_input("Mes de referencia", value=__import__("datetime").datetime.utcnow().replace(tzinfo=__import__("datetime").timezone.utc).astimezone(__import__("datetime").timezone(__import__("datetime").timedelta(hours=-3))).strftime("%B %Y").title(), key="mes_lid")
         if st.button("Gerar PDF de desempenho para os lideres"):
             with st.spinner("Gerando PDF..."):
                 pdf_buf = gerar_pdf_lideres(dados_carteiras_pdf, premio_total_cart, mes_lid)
