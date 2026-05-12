@@ -110,7 +110,7 @@ def gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl
         else: ts2.add("TEXTCOLOR",(-1,i),(-1,i),green); ts2.add("FONTNAME",(-1,i),(-1,i),"Helvetica-Bold")
     t2.setStyle(ts2); story.append(t2); story.append(Spacer(1,12))
     story.append(HRFlowable(width="100%",thickness=1,color=mid,spaceAfter=6))
-    story.append(Paragraph(f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')} · Grupo LLE · Uso interno", small_s))
+    story.append(Paragraph(f"Gerado em {(datetime.utcnow() + __import__('datetime').timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')} (GMT-3) · Grupo LLE · Uso interno", small_s))
     doc.build(story); buf.seek(0); return buf
 
 
@@ -141,7 +141,7 @@ def gerar_pdf_lideres(dados_carteiras, premio_total, mes_ref):
     # ── Cabeçalho ──
     left = [
         Paragraph("GRUPO LLE", S("t", fontName="Helvetica-Bold", fontSize=22, textColor=navy, spaceAfter=2)),
-        Paragraph("Carteiras Estratégicas — PISA & KING", S("s", fontName="Helvetica", fontSize=9, textColor=gray)),
+        Paragraph("Sistema de Premiacao — Equipe Financeiro", S("s", fontName="Helvetica", fontSize=9, textColor=gray)),
     ]
     right = [
         Paragraph("Relatório de Desempenho", S("tr", fontName="Helvetica", fontSize=9, textColor=gray, alignment=2, spaceAfter=2)),
@@ -261,21 +261,33 @@ def gerar_pdf_lideres(dados_carteiras, premio_total, mes_ref):
         ]))
         story.append(kpi_cart)
 
-        # Top clientes recuperados
-        if d.get("clientes") and len(d["clientes"]) > 0:
+        # Top clientes recuperados (identificados)
+        todos_clientes_pdf = list(d.get("clientes", []))
+        clientes_manuais = d.get("clientes_manuais", [])
+
+        if todos_clientes_pdf or clientes_manuais:
             story.append(Spacer(1, 4))
-            story.append(Paragraph("Top clientes recuperados:", S("tc", fontName="Helvetica-Bold", fontSize=8, textColor=gray, spaceAfter=3)))
-            top = d["clientes"][:10]
+            story.append(Paragraph("Clientes recuperados:", S("tc", fontName="Helvetica-Bold", fontSize=8, textColor=gray, spaceAfter=3)))
+
             cli_rows = [["Cliente", "Saldo anterior", "Saldo atual", "Recuperado"]]
-            for c in top:
+            for c in todos_clientes_pdf:
                 cli_rows.append([
                     Paragraph(str(c.get("nome_matriz",""))[:50], S("cn2", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#374151"))),
                     fmt_br(c.get("Em Atraso", 0)),
                     fmt_br(c.get("Atual", 0)),
                     fmt_br(c.get("Recuperado", 0)),
                 ])
+            # Clientes manuais (nao identificados com valor informado)
+            for c in clientes_manuais:
+                cli_rows.append([
+                    Paragraph(str(c.get("nome_matriz",""))[:50], S("cm2", fontName="Helvetica-Oblique", fontSize=7, textColor=blue)),
+                    fmt_br(c.get("Em Atraso", 0)),
+                    "—",
+                    fmt_br(c.get("Recuperado", 0)),
+                ])
+
             t_cli = Table(cli_rows, colWidths=[8*cm, 3*cm, 3*cm, 3.7*cm])
-            t_cli.setStyle(TableStyle([
+            ts_cli = TableStyle([
                 ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#eef1f8")),
                 ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
                 ("FONTSIZE",   (0,0), (-1,-1), 7),
@@ -287,14 +299,23 @@ def gerar_pdf_lideres(dados_carteiras, premio_total, mes_ref):
                 ("INNERGRID",  (0,0), (-1,-1), 0.3, mid),
                 ("TOPPADDING", (0,0), (-1,-1), 3),
                 ("BOTTOMPADDING", (0,0), (-1,-1), 3),
-            ]))
+            ])
+            # Destacar clientes manuais em azul
+            for i, c in enumerate(clientes_manuais, start=len(todos_clientes_pdf)+1):
+                ts_cli.add("TEXTCOLOR", (0,i), (-1,i), blue)
+                ts_cli.add("BACKGROUND", (0,i), (-1,i), colors.HexColor("#eff6ff"))
+            t_cli.setStyle(ts_cli)
             story.append(t_cli)
+
+            if clientes_manuais:
+                story.append(Paragraph("* Valor informado manualmente (cliente nao aparece na lista atual)", S("note", fontName="Helvetica-Oblique", fontSize=6, textColor=blue, spaceAfter=2)))
+
         story.append(Spacer(1, 10))
 
     # ── Rodapé ──
     story.append(HRFlowable(width="100%", thickness=1, color=mid, spaceAfter=6))
     story.append(Paragraph(
-        f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')} · Grupo LLE · Uso interno",
+        f"Gerado em {(datetime.utcnow() + __import__('datetime').timedelta(hours=3)).strftime('%d/%m/%Y %H:%M')} (GMT-3) · Grupo LLE · Uso interno",
         S("ft", fontName="Helvetica", fontSize=7, textColor=gray)
     ))
     doc.build(story)
@@ -772,7 +793,7 @@ if pagina=="Cobradores":
     # ── Exportar PDF ──
     st.markdown("---")
     st.markdown(f"<div style='color:{NAVY};font-size:16px;font-weight:800;margin:.5rem 0'>Exportar relatório gerencial</div>", unsafe_allow_html=True)
-    mes_input = st.text_input("Mes de referencia", value=datetime.now().strftime("%B %Y").title(), key="mes_ref")
+    mes_input = st.text_input("Mes de referencia", value=(datetime.utcnow()+timedelta(hours=3)).strftime("%B %Y").title(), key="mes_ref")
     if st.button("Gerar PDF"):
         with st.spinner("Gerando PDF..."):
             n_excl_pdf = len(excluidos) + len(st.session_state.excluidos_manual)
@@ -878,12 +899,39 @@ elif pagina=="Líderes":
         badge  = {0:"Sem nivel", 1:"Nivel 1", 2:"Nivel 2", 3:"Nivel 3"}[nivel]
 
         # Coletar para PDF
-        top_clientes = df_merge[~df_merge["cod_matriz"].isin(cods_nao_id_calc)].nlargest(10, "Recuperado")[["nome_matriz","Em Atraso","Atual","Recuperado"]].to_dict("records") if not df_merge.empty else []
+        # Clientes identificados: excluir os desmarcados E os nao-identificados
+        df_para_pdf = df_merge[
+            ~df_merge["cod_matriz"].isin(cods_nao_id_calc) &
+            ~df_merge["cod_matriz"].isin(excl)
+        ]
+        top_clientes = (df_para_pdf
+            .nlargest(10, "Recuperado")[["nome_matriz","Em Atraso","Atual","Recuperado"]]
+            .to_dict("records")
+        ) if not df_para_pdf.empty else []
+
+        # Clientes nao-identificados com valor manual informado
+        manual_key_pdf = f"manual_vals_{key}"
+        clientes_manuais_pdf = []
+        if manual_key_pdf in st.session_state:
+            for cod_m, val_m in st.session_state[manual_key_pdf].items():
+                if val_m and float(val_m) > 0:
+                    row_nao_id = df_nao_id[df_nao_id["cod_matriz"].astype(str) == str(cod_m)]
+                    nome_cliente = row_nao_id["nome_matriz"].values[0] if not row_nao_id.empty else cod_m
+                    saldo_ant = row_nao_id["Em Atraso"].values[0] if not row_nao_id.empty else 0
+                    clientes_manuais_pdf.append({
+                        "nome_matriz": f"{nome_cliente} *",
+                        "Em Atraso": saldo_ant,
+                        "Atual": saldo_ant - float(val_m),
+                        "Recuperado": float(val_m),
+                        "manual": True,
+                    })
+
         dados_carteiras_pdf.append({
             "nome": nome, "nivel": nivel, "premio": premio,
             "total_ant": total_ant, "total_hj": df_hj["Em Atraso"].sum(),
             "total_rec": total_rec_final, "pct_rec": pct_rec,
             "clientes": top_clientes,
+            "clientes_manuais": clientes_manuais_pdf,
         })
 
         with st.expander(f"{nome} — {badge} — {fmt_br(premio)}", expanded=True):
@@ -1012,7 +1060,7 @@ elif pagina=="Líderes":
         )
     with col_pdf:
         st.markdown("<br>", unsafe_allow_html=True)
-        mes_lid = st.text_input("Mes de referencia", value=datetime.now().strftime("%B %Y").title(), key="mes_lid")
+        mes_lid = st.text_input("Mes de referencia", value=(datetime.utcnow()+timedelta(hours=3)).strftime("%B %Y").title(), key="mes_lid")
         if st.button("Gerar PDF de desempenho para os lideres"):
             with st.spinner("Gerando PDF..."):
                 pdf_buf = gerar_pdf_lideres(dados_carteiras_pdf, premio_total_cart, mes_lid)
