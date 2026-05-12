@@ -141,7 +141,7 @@ def gerar_pdf_lideres(dados_carteiras, premio_total, mes_ref):
     # ── Cabeçalho ──
     left = [
         Paragraph("GRUPO LLE", S("t", fontName="Helvetica-Bold", fontSize=22, textColor=navy, spaceAfter=2)),
-        Paragraph("Sistema de Premiacao — Equipe Financeiro", S("s", fontName="Helvetica", fontSize=9, textColor=gray)),
+        Paragraph("", S("s", fontName="Helvetica", fontSize=9, textColor=gray)),
     ]
     right = [
         Paragraph("Relatório de Desempenho", S("tr", fontName="Helvetica", fontSize=9, textColor=gray, alignment=2, spaceAfter=2)),
