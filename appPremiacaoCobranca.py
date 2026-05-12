@@ -910,14 +910,17 @@ elif pagina=="Líderes":
         ) if not df_para_pdf.empty else []
 
         # Clientes nao-identificados com valor manual informado
+        # Usar df_merge diretamente (df_nao_id ainda nao foi definido aqui)
+        df_nao_id_pdf = df_merge[~df_merge["cod_matriz"].isin(df_hj["cod_matriz"])].copy()
+        df_nao_id_pdf = df_nao_id_pdf[df_nao_id_pdf["Em Atraso"] > 0]
         manual_key_pdf = f"manual_vals_{key}"
         clientes_manuais_pdf = []
         if manual_key_pdf in st.session_state:
             for cod_m, val_m in st.session_state[manual_key_pdf].items():
                 if val_m and float(val_m) > 0:
-                    row_nao_id = df_nao_id[df_nao_id["cod_matriz"].astype(str) == str(cod_m)]
-                    nome_cliente = row_nao_id["nome_matriz"].values[0] if not row_nao_id.empty else cod_m
-                    saldo_ant = row_nao_id["Em Atraso"].values[0] if not row_nao_id.empty else 0
+                    row_m = df_nao_id_pdf[df_nao_id_pdf["cod_matriz"].astype(str) == str(cod_m)]
+                    nome_cliente = row_m["nome_matriz"].values[0] if not row_m.empty else cod_m
+                    saldo_ant = row_m["Em Atraso"].values[0] if not row_m.empty else 0
                     clientes_manuais_pdf.append({
                         "nome_matriz": f"{nome_cliente} *",
                         "Em Atraso": saldo_ant,
