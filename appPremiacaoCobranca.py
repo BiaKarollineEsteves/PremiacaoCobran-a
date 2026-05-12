@@ -114,6 +114,194 @@ def gerar_pdf_relatorio(total_equipe, faixas_ok, totais, cobradores_list, n_excl
     doc.build(story); buf.seek(0); return buf
 
 
+def gerar_pdf_lideres(dados_carteiras, premio_total, mes_ref):
+    """Gera PDF de desempenho das carteiras estratégicas para os líderes."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+
+    navy  = colors.HexColor("#041747")
+    yellow= colors.HexColor("#FAC318")
+    green = colors.HexColor("#0F8C3B")
+    red   = colors.HexColor("#991B1B")
+    amber = colors.HexColor("#b45309")
+    light = colors.HexColor("#F4F5F7")
+    mid   = colors.HexColor("#E8EAF0")
+    gray  = colors.HexColor("#6b7280")
+    blue  = colors.HexColor("#0071FE")
+
+    S = lambda name, **kw: ParagraphStyle(name, **kw)
+    story = []
+
+    # ── Cabeçalho ──
+    left = [
+        Paragraph("GRUPO LLE", S("t", fontName="Helvetica-Bold", fontSize=22, textColor=navy, spaceAfter=2)),
+        Paragraph("Carteiras Estratégicas — PISA & KING", S("s", fontName="Helvetica", fontSize=9, textColor=gray)),
+    ]
+    right = [
+        Paragraph("Relatório de Desempenho", S("tr", fontName="Helvetica", fontSize=9, textColor=gray, alignment=2, spaceAfter=2)),
+        Paragraph(mes_ref, S("mr", fontName="Helvetica-Bold", fontSize=11, textColor=navy, alignment=2)),
+    ]
+    header = Table([[left, right]], colWidths=[11*cm, 6.7*cm])
+    header.setStyle(TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "BOTTOM"),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+    ]))
+    story.append(header)
+    story.append(HRFlowable(width="100%", thickness=3, color=yellow, spaceBefore=8, spaceAfter=14))
+
+    # ── KPI total ──
+    kpi = Table([
+        ["Premio total por lider"],
+        [fmt_br(premio_total)],
+    ], colWidths=[17.7*cm])
+    kpi.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), navy),
+        ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
+        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE",   (0,0), (-1,0), 9),
+        ("BACKGROUND", (0,1), (-1,1), light),
+        ("FONTNAME",   (0,1), (-1,1), "Helvetica-Bold"),
+        ("FONTSIZE",   (0,1), (-1,1), 16),
+        ("TEXTCOLOR",  (0,1), (-1,1), green),
+        ("ALIGN",      (0,0), (-1,-1), "CENTER"),
+        ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
+        ("BOX",        (0,0), (-1,-1), 0.5, mid),
+        ("TOPPADDING", (0,0), (-1,-1), 8),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+    ]))
+    story.append(kpi)
+    story.append(Spacer(1, 14))
+
+    # ── Resumo das carteiras ──
+    story.append(Paragraph("Resumo por Carteira", S("sec", fontName="Helvetica-Bold", fontSize=11, textColor=navy, spaceBefore=6, spaceAfter=6)))
+    resumo_rows = [["Carteira", "Ref. (R$)", "Atual (R$)", "Recuperado", "% Recup.", "Nivel", "Premio"]]
+    for d in dados_carteiras:
+        nivel_labels = {0:"Sem nivel", 1:"Nivel 1", 2:"Nivel 2", 3:"Nivel 3"}
+        resumo_rows.append([
+            d["nome"],
+            fmt_br(d["total_ant"]),
+            fmt_br(d["total_hj"]),
+            fmt_br(d["total_rec"]),
+            f"{d['pct_rec']:.2f}%",
+            nivel_labels.get(d["nivel"], "—"),
+            fmt_br(d["premio"]),
+        ])
+    resumo_rows.append(["TOTAL", "—", "—", "—", "—", "—", fmt_br(premio_total)])
+
+    col_w = [4.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 1.8*cm, 1.8*cm, 2.1*cm]
+    t_res = Table(resumo_rows, colWidths=col_w)
+    ts_res = TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), navy),
+        ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
+        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE",   (0,0), (-1,-1), 8),
+        ("FONTNAME",   (0,1), (-1,-1), "Helvetica"),
+        ("ALIGN",      (1,0), (-1,-1), "RIGHT"),
+        ("ALIGN",      (0,0), (0,-1), "LEFT"),
+        ("ROWBACKGROUNDS", (0,1), (-1,-2), [colors.white, light]),
+        ("BACKGROUND", (0,-1), (-1,-1), light),
+        ("FONTNAME",   (0,-1), (-1,-1), "Helvetica-Bold"),
+        ("BOX",        (0,0), (-1,-1), 0.5, mid),
+        ("INNERGRID",  (0,0), (-1,-1), 0.3, mid),
+        ("TOPPADDING", (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+    ])
+    # Colorir nivel
+    nivel_cores = {0: gray, 1: amber, 2: blue, 3: green}
+    for i, d in enumerate(dados_carteiras, start=1):
+        cor = nivel_cores.get(d["nivel"], gray)
+        ts_res.add("TEXTCOLOR", (5,i), (6,i), cor)
+        ts_res.add("FONTNAME",  (5,i), (6,i), "Helvetica-Bold")
+    t_res.setStyle(ts_res)
+    story.append(t_res)
+    story.append(Spacer(1, 14))
+
+    # ── Detalhe por carteira ──
+    story.append(Paragraph("Detalhe por Carteira", S("sec2", fontName="Helvetica-Bold", fontSize=11, textColor=navy, spaceAfter=6)))
+    for d in dados_carteiras:
+        nivel_label = {0:"Sem nivel", 1:"Nivel 1", 2:"Nivel 2", 3:"Nivel 3"}.get(d["nivel"], "—")
+        cor_nivel = nivel_cores.get(d["nivel"], gray)
+        # Cabeçalho da carteira
+        cart_header = Table([[
+            Paragraph(d["nome"], S("cn", fontName="Helvetica-Bold", fontSize=10, textColor=colors.white)),
+            Paragraph(f"{nivel_label} — {fmt_br(d['premio'])}", S("cp", fontName="Helvetica-Bold", fontSize=10, textColor=yellow, alignment=2)),
+        ]], colWidths=[10*cm, 7.7*cm])
+        cart_header.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,-1), navy),
+            ("TOPPADDING", (0,0), (-1,-1), 6),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+            ("LEFTPADDING", (0,0), (-1,-1), 8),
+            ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ]))
+        story.append(cart_header)
+
+        # KPIs da carteira
+        kpi_cart = Table([
+            ["Carteira ref.", "Carteira atual", "Recuperado", "% Recuperado"],
+            [fmt_br(d["total_ant"]), fmt_br(d["total_hj"]), fmt_br(d["total_rec"]), f"{d['pct_rec']:.2f}%"],
+        ], colWidths=[4.4*cm]*4)
+        kpi_cart.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#eef1f8")),
+            ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTSIZE",   (0,0), (-1,-1), 8),
+            ("FONTNAME",   (0,1), (-1,1), "Helvetica-Bold"),
+            ("FONTSIZE",   (0,1), (-1,1), 11),
+            ("TEXTCOLOR",  (2,1), (3,1), cor_nivel),
+            ("ALIGN",      (0,0), (-1,-1), "CENTER"),
+            ("BOX",        (0,0), (-1,-1), 0.5, mid),
+            ("INNERGRID",  (0,0), (-1,-1), 0.3, mid),
+            ("TOPPADDING", (0,0), (-1,-1), 5),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ]))
+        story.append(kpi_cart)
+
+        # Top clientes recuperados
+        if d.get("clientes") and len(d["clientes"]) > 0:
+            story.append(Spacer(1, 4))
+            story.append(Paragraph("Top clientes recuperados:", S("tc", fontName="Helvetica-Bold", fontSize=8, textColor=gray, spaceAfter=3)))
+            top = d["clientes"][:10]
+            cli_rows = [["Cliente", "Saldo anterior", "Saldo atual", "Recuperado"]]
+            for c in top:
+                cli_rows.append([
+                    Paragraph(str(c.get("nome_matriz",""))[:50], S("cn2", fontName="Helvetica", fontSize=7, textColor=colors.HexColor("#374151"))),
+                    fmt_br(c.get("Em Atraso", 0)),
+                    fmt_br(c.get("Atual", 0)),
+                    fmt_br(c.get("Recuperado", 0)),
+                ])
+            t_cli = Table(cli_rows, colWidths=[8*cm, 3*cm, 3*cm, 3.7*cm])
+            t_cli.setStyle(TableStyle([
+                ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#eef1f8")),
+                ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+                ("FONTSIZE",   (0,0), (-1,-1), 7),
+                ("FONTNAME",   (0,1), (-1,-1), "Helvetica"),
+                ("ALIGN",      (1,0), (-1,-1), "RIGHT"),
+                ("ALIGN",      (0,0), (0,-1), "LEFT"),
+                ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, light]),
+                ("BOX",        (0,0), (-1,-1), 0.3, mid),
+                ("INNERGRID",  (0,0), (-1,-1), 0.3, mid),
+                ("TOPPADDING", (0,0), (-1,-1), 3),
+                ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+            ]))
+            story.append(t_cli)
+        story.append(Spacer(1, 10))
+
+    # ── Rodapé ──
+    story.append(HRFlowable(width="100%", thickness=1, color=mid, spaceAfter=6))
+    story.append(Paragraph(
+        f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')} · Grupo LLE · Uso interno",
+        S("ft", fontName="Helvetica", fontSize=7, textColor=gray)
+    ))
+    doc.build(story)
+    buf.seek(0)
+    return buf
+
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
@@ -641,6 +829,7 @@ elif pagina=="Líderes":
         st.session_state.excluidos_carteira = {}
 
     niveis = []
+    dados_carteiras_pdf = []  # coleta dados para o PDF
     for nome, key, metas_pct in pares_config:
         try:
             df_ant = uploads[f"{key}_ant"]
@@ -687,6 +876,15 @@ elif pagina=="Líderes":
         premio = PREMIOS_LIDER_CARTEIRA.get(nivel, 0)
         cor    = {0:"#9ca3af", 1:"#b45309", 2:BLUE, 3:GREEN}[nivel]
         badge  = {0:"Sem nivel", 1:"Nivel 1", 2:"Nivel 2", 3:"Nivel 3"}[nivel]
+
+        # Coletar para PDF
+        top_clientes = df_merge[~df_merge["cod_matriz"].isin(cods_nao_id_calc)].nlargest(10, "Recuperado")[["nome_matriz","Em Atraso","Atual","Recuperado"]].to_dict("records") if not df_merge.empty else []
+        dados_carteiras_pdf.append({
+            "nome": nome, "nivel": nivel, "premio": premio,
+            "total_ant": total_ant, "total_hj": df_hj["Em Atraso"].sum(),
+            "total_rec": total_rec_final, "pct_rec": pct_rec,
+            "clientes": top_clientes,
+        })
 
         with st.expander(f"{nome} — {badge} — {fmt_br(premio)}", expanded=True):
             # KPIs formatados
@@ -804,12 +1002,27 @@ elif pagina=="Líderes":
     # Total prêmio carteiras
     premio_total_cart = sum(PREMIOS_LIDER_CARTEIRA.get(n, 0) for n in niveis)
     st.markdown("---")
-    st.markdown(
-        f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid {GREEN};max-width:280px">' +
-        f'<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Premio total carteiras (por lider)</div>' +
-        f'<div style="font-size:22px;font-weight:800;color:{GREEN}">{fmt_br(premio_total_cart)}</div></div>',
-        unsafe_allow_html=True
-    )
+    col_kpi, col_pdf = st.columns([1, 2])
+    with col_kpi:
+        st.markdown(
+            f'<div style="background:white;border-radius:10px;padding:1rem 1.25rem;border:1px solid #e8eaf0;border-top:3px solid {GREEN}">' +
+            f'<div style="font-size:10px;color:#9ca3af;text-transform:uppercase;font-weight:700;margin-bottom:4px">Premio total carteiras (por lider)</div>' +
+            f'<div style="font-size:22px;font-weight:800;color:{GREEN}">{fmt_br(premio_total_cart)}</div></div>',
+            unsafe_allow_html=True
+        )
+    with col_pdf:
+        st.markdown("<br>", unsafe_allow_html=True)
+        mes_lid = st.text_input("Mes de referencia", value=datetime.now().strftime("%B %Y").title(), key="mes_lid")
+        if st.button("Gerar PDF de desempenho para os lideres"):
+            with st.spinner("Gerando PDF..."):
+                pdf_buf = gerar_pdf_lideres(dados_carteiras_pdf, premio_total_cart, mes_lid)
+            st.download_button(
+                label="Baixar PDF dos lideres",
+                data=pdf_buf,
+                file_name=f"desempenho_lideres_{mes_lid.replace(' ','_')}.pdf",
+                mime="application/pdf",
+                key="dl_pdf_lid",
+            )
 
 elif pagina=="Exclusoes Permanentes":
     st.markdown(f"<div style='color:{NAVY};font-size:22px;font-weight:800;margin:1.5rem 0 2px'>Exclusoes Permanentes</div>", unsafe_allow_html=True)
