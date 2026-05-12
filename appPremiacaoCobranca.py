@@ -439,9 +439,13 @@ if pagina=="Cobradores":
 
             # ── Tab clientes ──
             with tab_cli:
-                grupos=defaultdict(lambda:{"vlr":0.0,"juros":0.0,"faixas":set(),"baixas":[]})
+                grupos=defaultdict(lambda:{"cod":"","vlr":0.0,"juros":0.0,"faixas":set(),"baixas":[]})
                 for _,row in sub_cli.iterrows():
                     parc=str(row.get("Parceiro","") or "").strip()
+                    raw_cod=row.get("Cod.Parceiro","") or ""
+                    try: cod=str(int(float(raw_cod))) if str(raw_cod).strip() not in ("","nan") else ""
+                    except: cod=str(raw_cod).strip()
+                    if cod: grupos[parc]["cod"]=cod
                     grupos[parc]["vlr"]+=safe_float(row.get("Vlr.Desdob.",0))
                     grupos[parc]["juros"]+=safe_float(row.get("Vlr Calculado",0))
                     f=get_faixa(row)
@@ -451,6 +455,7 @@ if pagina=="Cobradores":
 
                 df_cli=pd.DataFrame([{
                     "✓":parc not in st.session_state.excluidos_manual,
+                    "Codigo":g["cod"] if g["cod"] else "—",
                     "Parceiro":parc,
                     "Total recuperado":g["vlr"],
                     "Faixa":", ".join(
@@ -477,11 +482,12 @@ if pagina=="Cobradores":
                     edited=st.data_editor(
                         df_show, use_container_width=True, hide_index=True,
                         column_config={
-                            "✓": st.column_config.CheckboxColumn("Contabilizar",help="Desmarque para tirar da premiação"),
-                            "Total recuperado": st.column_config.NumberColumn("Total recuperado",format="R$ %.2f"),
-                            "Juros/multa": st.column_config.NumberColumn("Juros/multa",format="R$ %.2f"),
+                            "✓": st.column_config.CheckboxColumn("Contabilizar", help="Desmarque para tirar da premiacao"),
+                            "Codigo": st.column_config.TextColumn("Codigo"),
+                            "Total recuperado": st.column_config.NumberColumn("Total recuperado", format="R$ %.2f"),
+                            "Juros/multa":      st.column_config.NumberColumn("Juros/multa",      format="R$ %.2f"),
                         },
-                        disabled=["Parceiro","Total recuperado","Faixa","Datas de baixa","Juros/multa"],
+                        disabled=["Codigo","Parceiro","Total recuperado","Faixa","Datas de baixa","Juros/multa"],
                     )
 
                     # Atualizar set de excluídos manuais
@@ -660,7 +666,15 @@ elif pagina=="Líderes":
         excl = st.session_state.excluidos_carteira[key]
         df_valido = df_merge[~df_merge["cod_matriz"].isin(excl)]
         total_rec = df_valido["Recuperado"].sum()
-        pct_rec   = round(total_rec / total_ant * 100, 2) if total_ant > 0 else 0
+
+        # Somar valores manuais já informados (clientes não identificados)
+        manual_key = f"manual_vals_{key}"
+        if manual_key not in st.session_state:
+            st.session_state[manual_key] = {}
+        total_manual_salvo = sum(st.session_state[manual_key].values())
+
+        total_rec_final = total_rec + total_manual_salvo
+        pct_rec = round(total_rec_final / total_ant * 100, 2) if total_ant > 0 else 0
 
         m1, m2, m3 = metas_pct
         nivel  = 3 if pct_rec >= m3 else 2 if pct_rec >= m2 else 1 if pct_rec >= m1 else 0
@@ -675,7 +689,7 @@ elif pagina=="Líderes":
             for col, label, val, color in [
                 (c1, "Carteira referencia",  fmt_br(total_ant),                      NAVY),
                 (c2, "Carteira atual",       fmt_br(df_hj["Em Atraso"].sum()),        NAVY),
-                (c3, "Recuperado",           fmt_br(total_rec),                       GREEN),
+                (c3, "Recuperado",           fmt_br(total_rec_final),                 GREEN),
                 (c4, "% recuperado",         f"{pct_rec:.2f}%",                       GREEN if nivel > 0 else "#9ca3af"),
             ]:
                 col.markdown(
@@ -714,10 +728,6 @@ elif pagina=="Líderes":
                     unsafe_allow_html=True
                 )
                 # Inicializar valores manuais para esta carteira
-                manual_key = f"manual_vals_{key}"
-                if manual_key not in st.session_state:
-                    st.session_state[manual_key] = {}
-
                 df_nao_show = df_nao_id[["cod_matriz","nome_matriz","Em Atraso"]].copy()
                 df_nao_show.columns = ["Codigo","Cliente","Saldo anterior"]
                 df_nao_show["Valor real recuperado"] = df_nao_show["Codigo"].apply(
@@ -740,15 +750,9 @@ elif pagina=="Líderes":
                 # Salvar valores manuais
                 for _, row in edited_manual.iterrows():
                     st.session_state[manual_key][row["Codigo"]] = row["Valor real recuperado"]
-                total_manual = sum(st.session_state[manual_key].values())
-                if total_manual > 0:
-                    st.success(f"Valor manual informado: {fmt_br(total_manual)} — incluido no calculo do percentual recuperado.")
-                    # Recalcular pct com valores manuais
-                    total_rec_ajustado = total_rec + total_manual
-                    pct_rec_ajustado = round(total_rec_ajustado / total_ant * 100, 2) if total_ant > 0 else 0
-                    nivel_aj = 3 if pct_rec_ajustado >= m3 else 2 if pct_rec_ajustado >= m2 else 1 if pct_rec_ajustado >= m1 else 0
-                    if nivel_aj != nivel:
-                        st.info(f"Com os valores manuais: {pct_rec_ajustado:.2f}% recuperado → {['Sem nivel','Nivel 1','Nivel 2','Nivel 3'][nivel_aj]}")
+                total_manual_novo = sum(st.session_state[manual_key].values())
+                if total_manual_novo > 0:
+                    st.success(f"Valor manual incluido: {fmt_br(total_manual_novo)} — ja contabilizado no % acima.")
 
             if not df_det.empty:
                 st.markdown(f"<div style='font-size:13px;font-weight:700;color:{NAVY};margin-top:14px;margin-bottom:6px'>Clientes com recuperacao identificada</div>", unsafe_allow_html=True)
@@ -855,11 +859,11 @@ elif pagina=="Metas":
     c1,c2=st.columns(2)
     with c1:
         st.markdown(f'<div style="font-weight:800;color:{NAVY};margin-bottom:8px">Cobradores · teto R$ 935,00</div>', unsafe_allow_html=True)
-        df_m=pd.DataFrame([{"Faixa":m["faixa"],"Meta":m["meta"],"Prêmio (÷2)":m["premio"]/2} for m in METAS]+
-                          [{"Faixa":"TOTAL","Meta":None,"Prêmio (÷2)":935.0}])
-        st.dataframe(df_m,use_container_width=True,hide_index=True,
-            column_config={"Meta":st.column_config.NumberColumn("Meta mensal",format="R$ %.0f"),
-                           "Prêmio (÷2)":st.column_config.NumberColumn("Prêmio",format="R$ %.2f")})
+        df_m=pd.DataFrame(
+            [{"Faixa":m["faixa"],"Meta mensal":fmt_br(m["meta"]),"Premio":fmt_br(m["premio"]/2)} for m in METAS]+
+            [{"Faixa":"TOTAL","Meta mensal":"—","Premio":fmt_br(935.0)}]
+        )
+        st.dataframe(df_m, use_container_width=True, hide_index=True)
         st.caption("Prêmio liberado apenas se a equipe bater a meta da faixa (tudo ou nada)")
     with c2:
         st.markdown(f'<div style="font-weight:800;color:{NAVY};margin-bottom:8px">Líderes — Carteiras estratégicas</div>', unsafe_allow_html=True)
