@@ -664,7 +664,12 @@ elif pagina=="Líderes":
 
         # Aplicar exclusões manuais
         excl = st.session_state.excluidos_carteira[key]
-        df_valido = df_merge[~df_merge["cod_matriz"].isin(excl)]
+        # Excluir não-identificados do total_rec (serão somados via valores manuais)
+        cods_nao_id_calc = set(df_merge[~df_merge["cod_matriz"].isin(df_hj["cod_matriz"])]["cod_matriz"].tolist())
+        df_valido = df_merge[
+            ~df_merge["cod_matriz"].isin(excl) &
+            ~df_merge["cod_matriz"].isin(cods_nao_id_calc)
+        ]
         total_rec = df_valido["Recuperado"].sum()
 
         # Somar valores manuais já informados (clientes não identificados)
@@ -714,12 +719,17 @@ elif pagina=="Líderes":
             """, unsafe_allow_html=True)
 
             # Tabela de clientes com checkbox para exclusão
-            # Clientes com recuperação identificada
-            df_det = df_merge[df_merge["Recuperado"] > 0].sort_values("Recuperado", ascending=False).copy()
-
             # Clientes que sumiram da lista (nao aparecem no mes atual) = nao identificados
             df_nao_id = df_merge[~df_merge["cod_matriz"].isin(df_hj["cod_matriz"])].copy()
             df_nao_id = df_nao_id[df_nao_id["Em Atraso"] > 0]
+            cods_nao_id = set(df_nao_id["cod_matriz"].tolist())
+
+            # Clientes com recuperacao identificada = aparecem nos dois meses E tiveram reducao de saldo
+            # Excluir os nao-identificados para evitar dupla contagem
+            df_det = df_merge[
+                (df_merge["Recuperado"] > 0) &
+                (~df_merge["cod_matriz"].isin(cods_nao_id))
+            ].sort_values("Recuperado", ascending=False).copy()
 
             if not df_nao_id.empty:
                 st.markdown(
